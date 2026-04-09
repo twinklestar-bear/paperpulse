@@ -132,7 +132,7 @@
     grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 16px;
   }
-  /* ── RESPONSIVE — tablet (≤768px) ── */
+  /* ── RESPONSIVE — tablet ── */
   @media (max-width: 768px) {
     #papers-grid { grid-template-columns: 1fr; gap: 12px; }
     main { padding: 16px 14px 60px; }
@@ -140,8 +140,7 @@
     header { padding: 0 14px; }
     .filter-bar { padding: 0 14px; }
   }
-
-  /* ── RESPONSIVE — phone (≤480px) ── */
+  /* ── RESPONSIVE — phone ── */
   @media (max-width: 480px) {
     header { padding: 0 12px; }
     .header-inner { height: 52px; gap: 8px; }
@@ -167,8 +166,7 @@
     #stats-row { font-size: 11px; gap: 6px; margin-bottom: 14px; }
     .empty-state { padding: 48px 16px; }
   }
-
-  /* ── RESPONSIVE — very small phones (≤360px) ── */
+  /* ── RESPONSIVE — very small phones ── */
   @media (max-width: 360px) {
     .logo-name { font-size: 16px; }
     .paper-card { padding: 12px; }
@@ -330,22 +328,24 @@
 //  JOURNAL CONFIG
 // ═══════════════════════════════════════════════════════
 
-// Positive "Journal Article"[pt] + negative exclusions = research articles only.
+// Keeps research articles and reviews only.
+// Both positive (must be Journal Article) and negative (exclude junk types).
 const PT_FILTER = ' AND "Journal Article"[pt] NOT ("Comment"[pt] OR "Editorial"[pt] OR "News"[pt] OR "Letter"[pt] OR "Published Erratum"[pt] OR "Retraction of Publication"[pt] OR "Expression of Concern"[pt] OR "Biography"[pt] OR "Interview"[pt] OR "Newspaper Article"[pt])';
 
-// Journals identified by print ISSN — unambiguous, no title-abbreviation mismatch.
-// keyword: topic filter only for broad journals (Nature, Science, PNAS).
+// Each journal has BOTH its print ISSN and electronic ISSN so PubMed matches
+// papers regardless of which ISSN was used when the record was indexed.
+// keyword: topic filter only for high-volume broad journals.
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',         issn:'0028-0836', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
-  { id:'cell',       name:'Cell',           issn:'0092-8674', keyword:'',                                                                              color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',        issn:'0036-8075', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                          color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
-  { id:'ncb',        name:'Nat Cell Biol',  issn:'1465-7392', keyword:'',                                                                              color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
-  { id:'nbiotech',   name:'Nat Biotechnol', issn:'1087-0156', keyword:'',                                                                              color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
-  { id:'cellmet',    name:'Cell Metab',     issn:'1550-4131', keyword:'',                                                                              color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',           issn:'0027-8424', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
-  { id:'cancercell', name:'Cancer Cell',    issn:'1535-6108', keyword:'',                                                                              color:'#ef5350', bg:'rgba(239,83,80,0.1)'  },
-  { id:'jcb',        name:'J Cell Biol',    issn:'0021-9525', keyword:'',                                                                              color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
-  { id:'biophysj',   name:'Biophys J',      issn:'0006-3495', keyword:'',                                                                              color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+  { id:'nature',     name:'Nature',         pissn:'0028-0836', eissn:'1476-4687', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',           pissn:'0092-8674', eissn:'1097-4172', keyword:'',                                                                              color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',        pissn:'0036-8075', eissn:'1095-9203', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                          color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',  pissn:'1465-7392', eissn:'1476-4679', keyword:'',                                                                              color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol', pissn:'1087-0156', eissn:'1546-1696', keyword:'',                                                                              color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',     pissn:'1550-4131', eissn:'1932-7420', keyword:'',                                                                              color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',           pissn:'0027-8424', eissn:'1091-6490', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',    pissn:'1535-6108', eissn:'1878-3686', keyword:'',                                                                              color:'#ef5350', bg:'rgba(239,83,80,0.1)'  },
+  { id:'jcb',        name:'J Cell Biol',    pissn:'0021-9525', eissn:'1540-8140', keyword:'',                                                                              color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',      pissn:'0006-3495', eissn:'1542-0086', keyword:'',                                                                              color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
 ];
 
 const BIORXIV_CATS = [
@@ -387,7 +387,17 @@ let currentFilter = 'all';
 const sleep  = ms => new Promise(r => setTimeout(r, ms));
 const today  = ()  => new Date().toISOString().split('T')[0];
 const daysAgo = n  => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
-const fmt    = d   => { try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return d||''; } };
+// Parse date parts manually → local-time Date to avoid UTC midnight timezone shift
+// e.g. new Date("2026-04-07") = midnight UTC = April 6 in US timezones — WRONG
+// new Date(2026, 3, 7) = local midnight = April 7 everywhere — CORRECT
+const fmt = d => {
+  if (!d) return '';
+  const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3])
+    .toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  try { return new Date(d).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}); }
+  catch { return String(d); }
+};
 
 function setProgress(pct) {
   document.getElementById('progress-bar').style.width = pct + '%';
@@ -449,59 +459,58 @@ function makePaperUrl(doi, pmid) {
 }
 
 function resolveDate(sortpubdate, epubdate, pubdate) {
+  // sortpubdate: PubMed's best-date field, ALWAYS populated, format "YYYY/MM/DD HH:MM"
+  // epubdate:    actual online pub date, often empty string
+  // pubdate:     print issue date, often weeks/months in the future → least preferred
   const cap = today();
+  const capDate = new Date(cap);
 
-  // 1. sortpubdate — PubMed's own best-date field, always filled, format "YYYY/MM/DD HH:MM"
   if (sortpubdate && sortpubdate.trim()) {
-    const iso = sortpubdate.trim().slice(0, 10).replace(/\//g, '-'); // → "YYYY-MM-DD"
-    const d = new Date(iso);
-    if (!isNaN(d.getTime())) return d > new Date(cap) ? cap : iso;
+    const iso = sortpubdate.trim().slice(0,10).replace(/\//g,'-'); // "YYYY-MM-DD"
+    const d = new Date(iso + 'T12:00:00');
+    if (!isNaN(d)) return d > capDate ? cap : iso;
   }
-
-  // 2. epubdate — actual online publication date, format "YYYY Mon DD"
   if (epubdate && epubdate.trim()) {
     const d = new Date(epubdate.trim());
-    if (!isNaN(d.getTime())) {
-      const iso = d.toISOString().slice(0, 10);
-      return d > new Date(cap) ? cap : iso;
+    if (!isNaN(d)) {
+      const iso = d.toISOString().slice(0,10);
+      return d > capDate ? cap : iso;
     }
   }
-
-  // 3. pubdate — print issue date (often future); cap it
   if (pubdate && pubdate.trim()) {
     const d = new Date(pubdate.trim());
-    if (!isNaN(d.getTime())) {
-      const iso = d.toISOString().slice(0, 10);
-      return d > new Date(cap) ? cap : iso;
+    if (!isNaN(d)) {
+      const iso = d.toISOString().slice(0,10);
+      return d > capDate ? cap : iso;
     }
-    return pubdate.trim(); // return as-is if unparseable (e.g. "2026 Spring")
+    return pubdate.trim();
   }
-
   return '';
 }
 
 // ═══════════════════════════════════════════════════════
-//  PUBMED FETCH  (staggered + retry)
+//  PUBMED FETCH
 // ═══════════════════════════════════════════════════════
 const EUTILS = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
 async function pmSearch(journal, delayMs) {
   await sleep(delayMs);
-  // ISSN[issn] = unambiguous journal match.
-  // datetype=edat = Entrez indexing date (= online pub date), NOT pdat (print issue = future).
-  // sort=pub_date = valid PubMed sort value (sort=date was invalid and degraded results).
-  // stagger=400ms per journal → 2.5 req/sec, safely under PubMed's 3 req/sec anonymous limit.
-  const term = `"${journal.issn}"[issn]${journal.keyword}${PT_FILTER}`;
-  for (let i = 0; i < 3; i++) {
+  // Search BOTH print and electronic ISSN — some records are indexed under either.
+  // datetype=edat: Entrez indexing date = matches day paper goes online, not future print date.
+  // sort=pub_date: valid PubMed sort parameter (sort=date and sort=pub+date are invalid).
+  // retmax=200: fetch up to 200 per journal over 90 days.
+  // Staggered 400ms apart → 2.5 req/sec, safely under PubMed's 3 req/sec anonymous limit.
+  const term = `("${journal.pissn}"[issn] OR "${journal.eissn}"[issn])${journal.keyword}${PT_FILTER}`;
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&datetype=edat&reldate=90&sort=pub_date&retmax=200&retmode=json`;
       const r = await fetch(url);
-      if (r.status === 429) { await sleep(1500 * (i + 1)); continue; }
+      if (r.status === 429) { await sleep(1500 * (attempt+1)); continue; }
       if (!r.ok) return { journal, ids: [] };
-      const d = await r.json();
-      return { journal, ids: d.esearchresult?.idlist || [] };
+      const data = await r.json();
+      return { journal, ids: data.esearchresult?.idlist || [] };
     } catch(e) {
-      if (i < 2) { await sleep(1000 * (i + 1)); continue; }
+      if (attempt < 2) { await sleep(1000 * (attempt+1)); continue; }
     }
   }
   return { journal, ids: [] };
@@ -510,7 +519,7 @@ async function pmSearch(journal, delayMs) {
 async function pmSummary(idJournalMap) {
   const ids = Object.keys(idJournalMap);
   if (!ids.length) return [];
-  const CHUNK = 200; // chunk to avoid URL truncation
+  const CHUNK = 200; // PubMed silently truncates single URLs with >~200 IDs
   const results = [];
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
@@ -525,16 +534,16 @@ async function pmSummary(idJournalMap) {
         const doi  = extractDoi(p.elocationid, p.articleids);
         const url  = makePaperUrl(doi, id);
         if (!url) return;
-        // sortpubdate is always populated and is PubMed's best date ("YYYY/MM/DD HH:MM")
+        // sortpubdate is always set by PubMed — use it as the primary date
         const date = resolveDate(p.sortpubdate, p.epubdate, p.pubdate);
         results.push({
           id:         'pm-' + id,
           title:      (p.title || '').replace(/\.$/, '') || 'Untitled',
-          authors:    (p.authors||[]).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4 ? ' et al.' : ''),
+          authors:    (p.authors||[]).slice(0,4).map(a=>a.name).join(', ')
+                      + ((p.authors||[]).length > 4 ? ' et al.' : ''),
           abstract:   p.abstracttext || null,
           journal:    idJournalMap[id],
-          date,
-          dateSort:   date,
+          date, dateSort: date,
           doi, pmid: id, url,
           isPreprint: false,
         });
@@ -548,7 +557,7 @@ async function pmSummary(idJournalMap) {
 async function pmAbstracts(papers) {
   const need = papers.filter(p => !p.abstract && p.pmid);
   if (!need.length) return;
-  const CHUNK = 100; // XML is heavy — chunk to avoid timeouts
+  const CHUNK = 100; // XML responses are heavy — chunk to avoid timeouts
   for (let i = 0; i < need.length; i += CHUNK) {
     const chunk = need.slice(i, i + CHUNK);
     try {
@@ -558,7 +567,7 @@ async function pmAbstracts(papers) {
       xml.querySelectorAll('PubmedArticle').forEach(art => {
         const pmid = art.querySelector('PMID')?.textContent;
         const abs  = [...art.querySelectorAll('AbstractText')].map(n=>n.textContent).join(' ').trim();
-        if (pmid && abs) { const p = papers.find(x => x.pmid === pmid); if (p) p.abstract = abs; }
+        if (pmid && abs) { const p = papers.find(x=>x.pmid===pmid); if (p) p.abstract = abs; }
       });
     } catch(e) { /* continue */ }
     if (i + CHUNK < need.length) await sleep(400);

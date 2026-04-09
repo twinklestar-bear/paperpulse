@@ -357,7 +357,7 @@ const BIORXIV_CATS = [
 // ═══════════════════════════════════════════════════════
 //  CACHE  (localStorage — instant load on revisit)
 // ═══════════════════════════════════════════════════════
-const CACHE_KEY = 'paperpulse_v5';
+const CACHE_KEY = 'paperpulse_v6';
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 function saveCache(papers) {
@@ -633,16 +633,17 @@ async function fetchCrossRef(journal) {
           + ((item.author || []).length > 4 ? ' et al.' : '');
 
         return {
-          id:         'cr-' + doi.replace(/[^a-zA-Z0-9]/g, '-'),
-          title:      item.title[0].replace(/<[^>]+>/g, '').trim() || 'Untitled',
+          id:           'cr-' + doi.replace(/[^a-zA-Z0-9]/g, '-'),
+          title:        item.title[0].replace(/<[^>]+>/g, '').trim() || 'Untitled',
           authors,
           abstract,
           journal,
           date, dateSort: date,
           doi, pmid: null,
-          url: 'https://doi.org/' + doi,
-          isPreprint: false,
-          source: 'crossref',
+          url:          'https://doi.org/' + doi,
+          isPreprint:   false,
+          source:       'crossref',
+          hasOnlineDate: !!onlineIso,  // true only when published-online was set by publisher
         };
       });
   } catch(e) {
@@ -684,10 +685,40 @@ async function fetchBioRxiv(cat) {
 
 // ═══════════════════════════════════════════════════════
 //  ASSEMBLE + SORT + DEDUP
-//  PubMed wins for papers in both sources (richer metadata).
-//  CrossRef fills in papers not yet indexed by PubMed.
+//
+//  Core insight: PubMed has the best metadata (abstracts, author
+//  names, PMIDs) but WRONG dates for Cell Press journals — because
+//  PubMed's sortpubdate for those papers is the indexing date, not
+//  the publication date. CrossRef has the correct published-online
+//  date but less complete metadata.
+//
+//  Strategy: keep PubMed metadata, but overwrite the date with
+//  CrossRef's published-online when the publisher registered it.
 // ═══════════════════════════════════════════════════════
 function assemblePapers(pubmedPapers, crossrefArrays, bxArrays) {
+  // Build CrossRef lookup: DOI → confirmed online-pub date
+  // Only use entries where the publisher explicitly registered published-online.
+  const crOnlineDateByDoi = new Map();
+  crossrefArrays.flat().forEach(p => {
+    if (p.doi && p.hasOnlineDate && p.date) {
+      crOnlineDateByDoi.set(p.doi.toLowerCase(), p.date);
+    }
+  });
+
+  // Patch PubMed dates: if CrossRef has a confirmed published-online date
+  // for this paper, replace PubMed's sortpubdate (which can be the indexing
+  // date, not the publication date, for Cell Press / Elsevier journals).
+  pubmedPapers.forEach(p => {
+    if (p.doi) {
+      const correctDate = crOnlineDateByDoi.get(p.doi.toLowerCase());
+      if (correctDate) {
+        p.date    = correctDate;
+        p.dateSort = correctDate;
+      }
+    }
+  });
+
+  // CrossRef-only: papers not yet indexed by PubMed (fills recency gap)
   const pmDois = new Set(pubmedPapers.filter(p => p.doi).map(p => p.doi.toLowerCase()));
   const crossrefOnly = crossrefArrays.flat()
     .filter(p => p.doi && !pmDois.has(p.doi.toLowerCase()));

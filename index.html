@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaperPulse — Cancer Cell Biology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07090f;
+    --surface: #0e1118;
+    --surface2: #161b27;
+    --border: #1e2535;
+    --text: #e8eaf0;
+    --text-muted: #7a8299;
+    --text-dim: #3d4560;
+    --accent: #4fc3f7;
+    --accent2: #81c784;
+    --gold: #ffd54f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(7, 9, 15, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+  }
+  .header-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px; gap: 16px;
+  }
+  .logo {
+    display: flex; align-items: baseline; gap: 8px; flex-shrink: 0;
+  }
+  .logo-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 700; letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .logo-tag {
+    font-size: 11px; font-weight: 400; color: var(--text-muted);
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .header-meta {
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .last-updated {
+    font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+  }
+  #refresh-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 7px 14px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  #refresh-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  #refresh-btn svg { transition: transform 0.5s; }
+  #refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; gap: 4px; padding: 10px 0; align-items: center;
+  }
+  .filter-btn {
+    flex-shrink: 0;
+    padding: 5px 14px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .filter-btn:hover { color: var(--text); border-color: #3d4560; }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #07090f; font-weight: 500; }
+  .filter-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+
+  /* ── MAIN ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  /* ── STATUS BANNER ── */
+  #status-bar {
+    display: none; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;
+    font-size: 13px; color: var(--text-muted);
+  }
+  #status-bar.visible { display: flex; }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
+  }
+
+  /* ── STATS ROW ── */
+  #stats-row {
+    display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-muted); align-items: center;
+  }
+  #stats-row span { font-family: 'DM Mono', monospace; }
+  #stats-row .dot { color: var(--text-dim); }
+
+  /* ── PAPER GRID ── */
+  #papers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+  }
+  @media (max-width: 500px) {
+    #papers-grid { grid-template-columns: 1fr; gap: 12px; }
+    main { padding: 16px 16px 60px; }
+    .header-inner { height: 56px; }
+    .logo-tag { display: none; }
+  }
+
+  /* ── PAPER CARD ── */
+  .paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: all 0.2s; cursor: default;
+    animation: fadeUp 0.35s ease both;
+  }
+  .paper-card:hover {
+    border-color: #2a3352;
+    background: var(--surface2);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .journal-badge {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.4px;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 4px;
+    border: 1px solid; flex-shrink: 0;
+  }
+  .paper-date {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace; flex-shrink: 0;
+  }
+  .preprint-chip {
+    font-size: 10px; background: rgba(255,213,79,0.1); color: var(--gold);
+    border: 1px solid rgba(255,213,79,0.25); border-radius: 4px;
+    padding: 2px 7px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .paper-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px; font-weight: 500; line-height: 1.45;
+    color: var(--text); letter-spacing: -0.1px;
+  }
+  .paper-authors {
+    font-size: 12px; color: var(--text-muted); line-height: 1.4;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .paper-abstract {
+    font-size: 13px; color: #9da5bc; line-height: 1.65;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden; transition: all 0.3s;
+  }
+  .paper-abstract.expanded { -webkit-line-clamp: unset; }
+
+  .card-actions { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  .btn-read {
+    flex: 1; padding: 9px 16px; border-radius: 8px;
+    background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.25);
+    color: var(--accent); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.15s; text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-read:hover { background: rgba(79,195,247,0.18); border-color: var(--accent); }
+  .btn-expand {
+    padding: 9px 12px; border-radius: 8px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-expand:hover { color: var(--text); border-color: #3d4560; }
+
+  /* ── EMPTY / ERROR STATES ── */
+  .empty-state {
+    grid-column: 1/-1; text-align: center;
+    padding: 80px 24px; color: var(--text-muted);
+  }
+  .empty-state h3 { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 8px; color: var(--text); }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  /* ── SECTION DIVIDERS ── */
+  .section-header {
+    grid-column: 1/-1;
+    display: flex; align-items: center; gap: 12px;
+    margin: 8px 0 4px;
+  }
+  .section-header span {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-dim); font-weight: 500; white-space: nowrap;
+  }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── PROGRESS ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), #81c784);
+    transition: width 0.3s; z-index: 200; width: 0%;
+    box-shadow: 0 0 8px var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-name">PaperPulse</span>
+      <span class="logo-tag">Cancer Cell Biology</span>
+    </div>
+    <div class="header-meta">
+      <span class="last-updated" id="last-updated">Not yet loaded</span>
+      <button id="refresh-btn" onclick="loadAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="filter-inner" id="filter-inner">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All Papers</button>
+    <button class="filter-btn" data-filter="journal" onclick="setFilter('journal',this)">Journals Only</button>
+    <button class="filter-btn" data-filter="preprint" onclick="setFilter('preprint',this)">Preprints Only</button>
+    <div class="filter-divider"></div>
+    <!-- Journal-specific filters injected by JS -->
+  </div>
+</div>
+
+<main>
+  <div id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Loading papers…</span>
+  </div>
+  <div id="stats-row"></div>
+  <div id="papers-grid">
+    <div class="empty-state">
+      <h3>Fetching your feed…</h3>
+      <p>Loading the latest papers from your journals.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── JOURNAL CONFIG ──────────────────────────────────────────────
+const PUBMED_JOURNALS = [
+  { id:'nature',     name:'Nature',                  search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])', color:'#ef5350', textColor:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',                    search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',   color:'#ff8a65', textColor:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',                 search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',color:'#ffca28', textColor:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',           search:'"Nat Cell Biol"[ta]',   color:'#66bb6a', textColor:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol',          search:'"Nat Biotechnol"[ta] AND (cancer[tiab] OR tumor[tiab] OR cell[tiab])', color:'#26c6da', textColor:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',              search:'"Cell Metab"[ta]',       color:'#ab47bc', textColor:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',                    search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR "cell biology"[tiab] OR oncogen*[tiab])', color:'#7e57c2', textColor:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',             search:'"Cancer Cell"[ta]',      color:'#ef5350', textColor:'#ef5350', bg:'rgba(239,83,80,0.1)' },
+  { id:'jcb',        name:'J Cell Biol',             search:'"J Cell Biol"[ta]',      color:'#26a69a', textColor:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',               search:'"Biophys J"[ta]',        color:'#42a5f5', textColor:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+];
+
+const BIORXIV_CATS = [
+  { id:'biorxiv-cancer',    name:'bioRxiv · Cancer',     category:'cancer biology',    color:'#f48fb1', textColor:'#f48fb1', bg:'rgba(244,143,177,0.08)', isPreprint:true },
+  { id:'biorxiv-biophys',   name:'bioRxiv · Biophysics', category:'biophysics',        color:'#80cbc4', textColor:'#80cbc4', bg:'rgba(128,203,196,0.08)', isPreprint:true },
+  { id:'biorxiv-synbio',    name:'bioRxiv · Syn Bio',    category:'synthetic biology', color:'#a5d6a7', textColor:'#a5d6a7', bg:'rgba(165,214,167,0.08)', isPreprint:true },
+];
+
+// ── STATE ───────────────────────────────────────────────────────
+let allPapers = [];
+let currentFilter = 'all';
+let loadedCount = 0;
+let totalSources = PUBMED_JOURNALS.length + BIORXIV_CATS.length;
+
+// ── UTILITIES ───────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const today = () => new Date().toISOString().split('T')[0];
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
+const fmt = d => { try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return d; } };
+
+function setProgress(pct) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  if (pct >= 100) setTimeout(() => document.getElementById('progress-bar').style.width='0%', 600);
+}
+
+function showStatus(msg) {
+  const bar = document.getElementById('status-bar');
+  document.getElementById('status-text').textContent = msg;
+  bar.classList.add('visible');
+}
+function hideStatus() { document.getElementById('status-bar').classList.remove('visible'); }
+
+// ── FILTER SETUP ────────────────────────────────────────────────
+function buildFilterButtons() {
+  const inner = document.getElementById('filter-inner');
+  const all = [...PUBMED_JOURNALS, ...BIORXIV_CATS];
+  all.forEach(src => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.filter = src.id;
+    btn.textContent = src.name;
+    btn.onclick = () => setFilter(src.id, btn);
+    inner.appendChild(btn);
+  });
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPapers();
+}
+
+// ── DOI & URL HELPERS ────────────────────────────────────────────
+function extractDoi(elocationid, articleids) {
+  if (elocationid) {
+    const parts = elocationid.split(';').map(s => s.trim());
+    for (const part of parts) {
+      const m = part.match(/^doi:\s*(.+)/i);
+      if (m) return m[1].trim();
+    }
+  }
+  if (Array.isArray(articleids)) {
+    const doiEntry = articleids.find(a => a.idtype === 'doi');
+    if (doiEntry?.value) return doiEntry.value.trim();
+  }
+  return null;
+}
+
+function resolveDate(epubdate, pubdate) {
+  const todayStr = today();
+  // Prefer epubdate (actual online publication date) over pubdate (print issue date)
+  // epubdate is empty string when not set
+  const raw = (epubdate && epubdate.trim() !== '') ? epubdate : pubdate;
+  if (!raw) return '';
+  // Parse — PubMed formats: "2025 Apr 03", "2025 Apr", "2025"
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return raw; // unparseable, return as-is
+  // Cap future dates at today
+  const todayDate = new Date(todayStr);
+  return parsed > todayDate ? todayStr : raw;
+}
+
+
+  // doi.org redirects to the official publisher/journal page
+  if (doi) return `https://doi.org/${doi}`;
+  // Only fall back to PubMed if truly no DOI is available
+  return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
+}
+
+// ── PUBMED FETCH ─────────────────────────────────────────────────
+async function fetchPubMed(journal) {
+  const BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  const days = 60;
+  try {
+    const searchUrl = `${BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search)}&datetype=pdat&reldate=${days}&sort=pub+date&retmax=8&retmode=json`;
+    const searchRes = await fetch(searchUrl);
+    if (!searchRes.ok) return [];
+    const searchData = await searchRes.json();
+    const ids = searchData.esearchresult?.idlist || [];
+    if (!ids.length) return [];
+
+    await sleep(150);
+    const summaryUrl = `${BASE}/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
+    const summaryRes = await fetch(summaryUrl);
+    if (!summaryRes.ok) return [];
+    const summaryData = await summaryRes.json();
+    const result = summaryData.result || {};
+
+    return ids.map(id => {
+      const p = result[id];
+      if (!p) return null;
+      const authors = (p.authors || []).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4?' et al.':'');
+      return {
+        id: 'pm-' + id,
+        title: p.title?.replace(/\.$/, '') || 'Untitled',
+        authors,
+        abstract: p.abstracttext || null,
+        journal: journal,
+        date: resolveDate(p.epubdate, p.pubdate),
+        dateSort: resolveDate(p.epubdate, p.pubdate),
+        doi: extractDoi(p.elocationid, p.articleids),
+        pmid: id,
+        isPreprint: false,
+        type: 'journal',
+        url: buildJournalUrl(extractDoi(p.elocationid, p.articleids), id),
+      };
+    }).filter(Boolean);
+  } catch(e) {
+    console.warn('PubMed error for', journal.name, e);
+    return [];
+  }
+}
+
+// ── BIORXIV FETCH ────────────────────────────────────────────────
+async function fetchBioRxiv(cat) {
+  try {
+    const start = daysAgo(30);
+    const end = today();
+    const url = `https://api.biorxiv.org/details/biorxiv/${start}/${end}/0/json`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const papers = (data.collection || [])
+      .filter(p => p.category?.toLowerCase() === cat.category.toLowerCase())
+      .slice(0, 10)
+      .map(p => ({
+        id: 'bxrv-' + p.doi?.replace(/\//g,'-'),
+        title: p.title?.trim() || 'Untitled',
+        authors: (p.authors || '').split('; ').slice(0,4).join(', ') + ((p.authors||'').split('; ').length>4?' et al.':''),
+        abstract: p.abstract || null,
+        journal: cat,
+        date: p.date || '',
+        dateSort: p.date || '',
+        doi: p.doi || null,
+        pmid: null,
+        isPreprint: true,
+        type: 'preprint',
+        url: p.doi ? `https://doi.org/${p.doi}` : null,
+      }));
+    return papers;
+  } catch(e) {
+    console.warn('bioRxiv error for', cat.category, e);
+    return [];
+  }
+}
+
+// ── FETCH ABSTRACTS FOR PUBMED ───────────────────────────────────
+async function enrichAbstracts(papers) {
+  const needAbstract = papers.filter(p => !p.isPreprint && !p.abstract && p.pmid);
+  if (!needAbstract.length) return;
+  try {
+    const ids = needAbstract.map(p=>p.pmid).join(',');
+    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids}&rettype=abstract&retmode=xml`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const text = await res.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, 'text/xml');
+    const articles = xml.querySelectorAll('PubmedArticle');
+    articles.forEach(art => {
+      const pmid = art.querySelector('PMID')?.textContent;
+      const abs  = art.querySelector('AbstractText')?.textContent;
+      if (pmid && abs) {
+        const paper = papers.find(p => p.pmid === pmid);
+        if (paper) paper.abstract = abs;
+      }
+    });
+  } catch(e) { /* silent fail */ }
+}
+
+// ── MAIN LOAD ────────────────────────────────────────────────────
+async function loadAll() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  loadedCount = 0;
+  allPapers = [];
+  showStatus(`Connecting to ${totalSources} sources…`);
+  setProgress(5);
+  renderPapers(); // show loading state
+
+  const results = [];
+
+  // bioRxiv (parallel, no rate limit issue)
+  const bxPromises = BIORXIV_CATS.map(cat =>
+    fetchBioRxiv(cat).then(papers => {
+      results.push(...papers);
+      loadedCount++;
+      const pct = 5 + (loadedCount / totalSources) * 70;
+      setProgress(pct);
+      showStatus(`Loaded ${loadedCount}/${totalSources} sources…`);
+    })
+  );
+  await Promise.all(bxPromises);
+
+  // PubMed (sequential with delay to respect rate limits)
+  for (const journal of PUBMED_JOURNALS) {
+    const papers = await fetchPubMed(journal);
+    results.push(...papers);
+    loadedCount++;
+    const pct = 5 + (loadedCount / totalSources) * 70;
+    setProgress(pct);
+    showStatus(`Loaded ${journal.name}… (${loadedCount}/${totalSources})`);
+    await sleep(350);
+  }
+
+  allPapers = results;
+  setProgress(80);
+  showStatus('Fetching abstracts…');
+  await enrichAbstracts(allPapers);
+
+  // Sort by date descending
+  allPapers.sort((a,b) => {
+    const da = new Date(a.dateSort || 0);
+    const db = new Date(b.dateSort || 0);
+    return db - da;
+  });
+
+  // Deduplicate by title similarity
+  const seen = new Set();
+  allPapers = allPapers.filter(p => {
+    const key = p.title.toLowerCase().replace(/\s+/g,'').substring(0,60);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  setProgress(100);
+  hideStatus();
+  btn.classList.remove('spinning');
+
+  const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('last-updated').textContent = `Updated ${now}`;
+
+  renderPapers();
+}
+
+// ── RENDER ───────────────────────────────────────────────────────
+function renderPapers() {
+  const grid = document.getElementById('papers-grid');
+  const stats = document.getElementById('stats-row');
+
+  let filtered = allPapers;
+  if (currentFilter === 'journal') filtered = allPapers.filter(p => !p.isPreprint);
+  else if (currentFilter === 'preprint') filtered = allPapers.filter(p => p.isPreprint);
+  else if (currentFilter !== 'all') filtered = allPapers.filter(p => p.journal.id === currentFilter);
+
+  if (!allPapers.length) {
+    grid.innerHTML = `<div class="empty-state"><h3>Loading feed…</h3><p>Fetching the latest papers from ${totalSources} sources.</p></div>`;
+    stats.innerHTML = '';
+    return;
+  }
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state"><h3>No papers found</h3><p>No recent papers matched this filter. Try a broader time window or check back later.</p></div>`;
+  } else {
+    // Build cards with section headers for journals vs preprints
+    let html = '';
+    const journals = filtered.filter(p => !p.isPreprint);
+    const preprints = filtered.filter(p => p.isPreprint);
+
+    if (journals.length && preprints.length) {
+      if (journals.length) html += sectionHeader('Journal Articles');
+      journals.forEach((p, i) => { html += paperCard(p, i); });
+      if (preprints.length) html += sectionHeader('Preprints (bioRxiv)');
+      preprints.forEach((p, i) => { html += paperCard(p, i + journals.length); });
+    } else {
+      filtered.forEach((p, i) => { html += paperCard(p, i); });
+    }
+    grid.innerHTML = html;
+  }
+
+  const nJournals = allPapers.filter(p => !p.isPreprint).length;
+  const nPreprints = allPapers.filter(p => p.isPreprint).length;
+  stats.innerHTML = `
+    <span>${allPapers.length} papers</span>
+    <span class="dot">·</span>
+    <span>${nJournals} journal articles</span>
+    <span class="dot">·</span>
+    <span>${nPreprints} preprints</span>
+    <span class="dot">·</span>
+    <span>Last 30–60 days</span>
+  `;
+}
+
+function sectionHeader(label) {
+  return `<div class="section-header"><div class="section-line"></div><span>${label}</span><div class="section-line"></div></div>`;
+}
+
+function paperCard(paper, idx) {
+  const j = paper.journal;
+  const delay = Math.min(idx * 30, 300);
+  const abstract = paper.abstract || 'Abstract not available. Click "Open Paper" to read more.';
+  const url = paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : '#');
+  const preprintChip = paper.isPreprint ? `<span class="preprint-chip">Preprint</span>` : '';
+
+  return `
+  <div class="paper-card" style="animation-delay:${delay}ms">
+    <div class="card-top">
+      <span class="journal-badge" style="color:${j.color};border-color:${j.color}22;background:${j.bg}">${j.name}</span>
+      <span class="paper-date">${fmt(paper.date)}</span>
+    </div>
+    ${preprintChip}
+    <div class="paper-title">${escHtml(paper.title)}</div>
+    <div class="paper-authors">${escHtml(paper.authors) || 'Authors not available'}</div>
+    <div class="paper-abstract" id="abs-${escAttr(paper.id)}">${escHtml(abstract)}</div>
+    <div class="card-actions">
+      <a class="btn-read" href="${url}" target="_blank" rel="noopener">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        Open Paper
+      </a>
+      <button class="btn-expand" onclick="toggleAbstract('${escAttr(paper.id)}', this)">Expand</button>
+    </div>
+  </div>`;
+}
+
+function toggleAbstract(id, btn) {
+  const el = document.getElementById('abs-' + id);
+  if (!el) return;
+  el.classList.toggle('expanded');
+  btn.textContent = el.classList.contains('expanded') ? 'Collapse' : 'Expand';
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  if (!s) return '';
+  return String(s).replace(/[^a-zA-Z0-9-]/g, '-');
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────
+buildFilterButtons();
+loadAll();
+</script>
+</body>
+</html>

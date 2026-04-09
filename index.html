@@ -292,17 +292,22 @@
 // ═══════════════════════════════════════════════════════
 //  JOURNAL CONFIG
 // ═══════════════════════════════════════════════════════
+// Publication-type filter — appended to every PubMed query.
+// Keeps original research articles and reviews.
+// Excludes News, Comments, Editorials, Letters, Errata, Retractions.
+const PT_FILTER = ' NOT ("Comment"[pt] OR "Editorial"[pt] OR "News"[pt] OR "Letter"[pt] OR "Published Erratum"[pt] OR "Retraction of Publication"[pt] OR "Expression of Concern"[pt])';
+
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',         search:'"Nature"[ta]',          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
-  { id:'cell',       name:'Cell',           search:'"Cell"[ta]',            color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',        search:'"Science"[ta]',         color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
-  { id:'ncb',        name:'Nat Cell Biol',  search:'"Nat Cell Biol"[ta]',                                                      color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
-  { id:'nbiotech',   name:'Nat Biotechnol', search:'"Nat Biotechnol"[ta]',                                                     color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
-  { id:'cellmet',    name:'Cell Metab',     search:'"Cell Metab"[ta]',                                                         color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',           search:'"Proc Natl Acad Sci U S A"[ta]', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
-  { id:'cancercell', name:'Cancer Cell',    search:'"Cancer Cell"[ta]',                                                        color:'#ef5350', bg:'rgba(239,83,80,0.1)' },
-  { id:'jcb',        name:'J Cell Biol',    search:'"J Cell Biol"[ta]',                                                        color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
-  { id:'biophysj',   name:'Biophys J',      search:'"Biophys J"[ta]',                                                          color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+  { id:'nature',     name:'Nature',         search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                                   color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',           search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',             color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',        search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                                  color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',  search:'"Nat Cell Biol"[ta]',                                                                               color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol', search:'"Nat Biotechnol"[ta]',                                                                              color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',     search:'"Cell Metab"[ta]',                                                                                  color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',           search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                 color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',    search:'"Cancer Cell"[ta]',                                                                                 color:'#ef5350', bg:'rgba(239,83,80,0.1)' },
+  { id:'jcb',        name:'J Cell Biol',    search:'"J Cell Biol"[ta]',                                                                                color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',      search:'"Biophys J"[ta]',                                                                                  color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
 ];
 
 const BIORXIV_CATS = [
@@ -314,7 +319,7 @@ const BIORXIV_CATS = [
 // ═══════════════════════════════════════════════════════
 //  CACHE  (localStorage — instant load on revisit)
 // ═══════════════════════════════════════════════════════
-const CACHE_KEY = 'paperpulse_v0';
+const CACHE_KEY = 'paperpulse_v3';
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 function saveCache(papers) {
@@ -423,7 +428,7 @@ async function pmSearch(journal, delayMs) {
   await sleep(delayMs);
   for (let i = 0; i < 3; i++) {
     try {
-      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search)}&datetype=pdat&reldate=60&sort=pub+date&retmax=8&retmode=json`;
+      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search + PT_FILTER)}&datetype=pdat&reldate=60&sort=pub+date&retmax=50&retmode=json`;
       const r = await fetch(url);
       if (r.status === 429) { await sleep(1200 * (i+1)); continue; }
       if (!r.ok) return { journal, ids:[] };

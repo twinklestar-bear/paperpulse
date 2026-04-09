@@ -336,13 +336,13 @@ const PT_FILTER = ' AND "Journal Article"[pt] NOT ("Comment"[pt] OR "Editorial"[
 // papers regardless of which ISSN was used when the record was indexed.
 // keyword: topic filter only for high-volume broad journals.
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',         pissn:'0028-0836', eissn:'1476-4687', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'nature',     name:'Nature',         pissn:'0028-0836', eissn:'1476-4687', keyword:'',                          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
   { id:'cell',       name:'Cell',           pissn:'0092-8674', eissn:'1097-4172', keyword:'',                                                                              color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',        pissn:'0036-8075', eissn:'1095-9203', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                          color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'science',    name:'Science',        pissn:'0036-8075', eissn:'1095-9203', keyword:'',                          color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
   { id:'ncb',        name:'Nat Cell Biol',  pissn:'1465-7392', eissn:'1476-4679', keyword:'',                                                                              color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
   { id:'nbiotech',   name:'Nat Biotechnol', pissn:'1087-0156', eissn:'1546-1696', keyword:'',                                                                              color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
   { id:'cellmet',    name:'Cell Metab',     pissn:'1550-4131', eissn:'1932-7420', keyword:'',                                                                              color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',           pissn:'0027-8424', eissn:'1091-6490', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'pnas',       name:'PNAS',           pissn:'0027-8424', eissn:'1091-6490', keyword:'', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
   { id:'cancercell', name:'Cancer Cell',    pissn:'1535-6108', eissn:'1878-3686', keyword:'',                                                                              color:'#ef5350', bg:'rgba(239,83,80,0.1)'  },
   { id:'jcb',        name:'J Cell Biol',    pissn:'0021-9525', eissn:'1540-8140', keyword:'',                                                                              color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
   { id:'biophysj',   name:'Biophys J',      pissn:'0006-3495', eissn:'1542-0086', keyword:'',                                                                              color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },

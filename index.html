@@ -292,22 +292,22 @@
 // ═══════════════════════════════════════════════════════
 //  JOURNAL CONFIG
 // ═══════════════════════════════════════════════════════
-// Publication-type filter — appended to every PubMed query.
-// Keeps original research articles and reviews.
-// Excludes News, Comments, Editorials, Letters, Errata, Retractions.
-const PT_FILTER = ' NOT ("Comment"[pt] OR "Editorial"[pt] OR "News"[pt] OR "Letter"[pt] OR "Published Erratum"[pt] OR "Retraction of Publication"[pt] OR "Expression of Concern"[pt])';
+// Positive filter: must be a Journal Article.
+// Negative filter: exclude non-research content types.
+// Using both together is the most reliable way to get only original research + reviews.
+const PT_FILTER = ' AND "Journal Article"[pt] NOT ("Comment"[pt] OR "Editorial"[pt] OR "News"[pt] OR "Letter"[pt] OR "Published Erratum"[pt] OR "Retraction of Publication"[pt] OR "Expression of Concern"[pt] OR "Biography"[pt] OR "Interview"[pt] OR "Lecture"[pt] OR "Legal Case"[pt] OR "Newspaper Article"[pt])';
 
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',         search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                                   color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
-  { id:'cell',       name:'Cell',           search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',             color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',        search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                                  color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
-  { id:'ncb',        name:'Nat Cell Biol',  search:'"Nat Cell Biol"[ta]',                                                                               color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
-  { id:'nbiotech',   name:'Nat Biotechnol', search:'"Nat Biotechnol"[ta]',                                                                              color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
-  { id:'cellmet',    name:'Cell Metab',     search:'"Cell Metab"[ta]',                                                                                  color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',           search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                 color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
-  { id:'cancercell', name:'Cancer Cell',    search:'"Cancer Cell"[ta]',                                                                                 color:'#ef5350', bg:'rgba(239,83,80,0.1)' },
-  { id:'jcb',        name:'J Cell Biol',    search:'"J Cell Biol"[ta]',                                                                                color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
-  { id:'biophysj',   name:'Biophys J',      search:'"Biophys J"[ta]',                                                                                  color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+  { id:'nature',     name:'Nature',         search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',           search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',            color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',        search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',         color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',  search:'"Nat Cell Biol"[ta]',                                                      color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol', search:'"Nat Biotechnol"[ta]',                                                     color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',     search:'"Cell Metab"[ta]',                                                         color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',           search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',    search:'"Cancer Cell"[ta]',                                                        color:'#ef5350', bg:'rgba(239,83,80,0.1)' },
+  { id:'jcb',        name:'J Cell Biol',    search:'"J Cell Biol"[ta]',                                                        color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',      search:'"Biophys J"[ta]',                                                          color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
 ];
 
 const BIORXIV_CATS = [
@@ -319,7 +319,7 @@ const BIORXIV_CATS = [
 // ═══════════════════════════════════════════════════════
 //  CACHE  (localStorage — instant load on revisit)
 // ═══════════════════════════════════════════════════════
-const CACHE_KEY = 'paperpulse_v3';
+const CACHE_KEY = 'paperpulse_v4';
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 function saveCache(papers) {
@@ -428,7 +428,7 @@ async function pmSearch(journal, delayMs) {
   await sleep(delayMs);
   for (let i = 0; i < 3; i++) {
     try {
-      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search + PT_FILTER)}&datetype=pdat&reldate=60&sort=pub+date&retmax=50&retmode=json`;
+      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search + PT_FILTER)}&datetype=pdat&reldate=90&sort=pub+date&retmax=200&retmode=json`;
       const r = await fetch(url);
       if (r.status === 429) { await sleep(1200 * (i+1)); continue; }
       if (!r.ok) return { journal, ids:[] };
@@ -444,45 +444,63 @@ async function pmSearch(journal, delayMs) {
 async function pmSummary(idJournalMap) {
   const ids = Object.keys(idJournalMap);
   if (!ids.length) return [];
-  try {
-    const r = await fetch(`${EUTILS}/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`);
-    if (!r.ok) return [];
-    const data = await r.json();
-    const res = data.result || {};
-    return ids.flatMap(id => {
-      const p = res[id];
-      if (!p || p.error) return [];
-      const doi = extractDoi(p.elocationid, p.articleids);
-      const url = makePaperUrl(doi, id);
-      if (!url) return []; // skip if no usable link at all
-      return [{
-        id: 'pm-' + id,
-        title:    (p.title || '').replace(/\.$/, '') || 'Untitled',
-        authors:  (p.authors||[]).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4 ? ' et al.' : ''),
-        abstract: p.abstracttext || null,
-        journal:  idJournalMap[id],
-        date:     resolveDate(p.epubdate, p.pubdate),
-        dateSort: resolveDate(p.epubdate, p.pubdate),
-        doi, pmid: id, url,
-        isPreprint: false,
-      }];
-    });
-  } catch(e) { return []; }
+
+  // Chunk into batches of 200 — large ID lists cause silent truncation in PubMed URLs
+  const CHUNK = 200;
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK));
+
+  const allPapers = [];
+  for (const chunk of chunks) {
+    try {
+      const r = await fetch(`${EUTILS}/esummary.fcgi?db=pubmed&id=${chunk.join(',')}&retmode=json`);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const res = data.result || {};
+      chunk.forEach(id => {
+        const p = res[id];
+        if (!p || p.error) return;
+        const doi = extractDoi(p.elocationid, p.articleids);
+        const url = makePaperUrl(doi, id);
+        if (!url) return;
+        allPapers.push({
+          id: 'pm-' + id,
+          title:    (p.title || '').replace(/\.$/, '') || 'Untitled',
+          authors:  (p.authors||[]).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4 ? ' et al.' : ''),
+          abstract: p.abstracttext || null,
+          journal:  idJournalMap[id],
+          date:     resolveDate(p.epubdate, p.pubdate),
+          dateSort: resolveDate(p.epubdate, p.pubdate),
+          doi, pmid: id, url,
+          isPreprint: false,
+        });
+      });
+      if (chunks.length > 1) await sleep(200); // brief pause between chunks
+    } catch(e) { /* continue with next chunk */ }
+  }
+  return allPapers;
 }
 
 async function pmAbstracts(papers) {
   const need = papers.filter(p => !p.abstract && p.pmid);
   if (!need.length) return;
-  try {
-    const r = await fetch(`${EUTILS}/efetch.fcgi?db=pubmed&id=${need.map(p=>p.pmid).join(',')}&rettype=abstract&retmode=xml`);
-    if (!r.ok) return;
-    const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
-    xml.querySelectorAll('PubmedArticle').forEach(art => {
-      const pmid = art.querySelector('PMID')?.textContent;
-      const abs  = [...art.querySelectorAll('AbstractText')].map(n=>n.textContent).join(' ').trim();
-      if (pmid && abs) { const p = papers.find(x => x.pmid === pmid); if (p) p.abstract = abs; }
-    });
-  } catch(e) { /* silent */ }
+
+  // Chunk into 100 — XML responses are large, chunking avoids timeouts
+  const CHUNK = 100;
+  for (let i = 0; i < need.length; i += CHUNK) {
+    const chunk = need.slice(i, i + CHUNK);
+    try {
+      const r = await fetch(`${EUTILS}/efetch.fcgi?db=pubmed&id=${chunk.map(p=>p.pmid).join(',')}&rettype=abstract&retmode=xml`);
+      if (!r.ok) continue;
+      const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
+      xml.querySelectorAll('PubmedArticle').forEach(art => {
+        const pmid = art.querySelector('PMID')?.textContent;
+        const abs  = [...art.querySelectorAll('AbstractText')].map(n=>n.textContent).join(' ').trim();
+        if (pmid && abs) { const p = papers.find(x => x.pmid === pmid); if (p) p.abstract = abs; }
+      });
+      if (i + CHUNK < need.length) await sleep(300);
+    } catch(e) { /* continue */ }
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -628,7 +646,7 @@ function renderPapers() {
 
   const nJ = allPapers.filter(p=>!p.isPreprint).length;
   const nP = allPapers.filter(p=> p.isPreprint).length;
-  stats.innerHTML = `<span>${allPapers.length} papers</span><span class="dot">·</span><span>${nJ} journal articles</span><span class="dot">·</span><span>${nP} preprints</span><span class="dot">·</span><span>Last 14–60 days</span>`;
+  stats.innerHTML = `<span>${allPapers.length} papers</span><span class="dot">·</span><span>${nJ} journal articles</span><span class="dot">·</span><span>${nP} preprints</span><span class="dot">·</span><span>Last 90 days</span>`;
 }
 
 function sectionHeader(label) {

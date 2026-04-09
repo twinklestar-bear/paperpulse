@@ -336,16 +336,16 @@ const PT_FILTER = ' AND "Journal Article"[pt] NOT ("Comment"[pt] OR "Editorial"[
 // papers regardless of which ISSN was used when the record was indexed.
 // keyword: topic filter only for high-volume broad journals.
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',         pissn:'0028-0836', eissn:'1476-4687', keyword:'',                          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
-  { id:'cell',       name:'Cell',           pissn:'0092-8674', eissn:'1097-4172', keyword:'',                                                                              color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',        pissn:'0036-8075', eissn:'1095-9203', keyword:'',                          color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
-  { id:'ncb',        name:'Nat Cell Biol',  pissn:'1465-7392', eissn:'1476-4679', keyword:'',                                                                              color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
-  { id:'nbiotech',   name:'Nat Biotechnol', pissn:'1087-0156', eissn:'1546-1696', keyword:'',                                                                              color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
-  { id:'cellmet',    name:'Cell Metab',     pissn:'1550-4131', eissn:'1932-7420', keyword:'',                                                                              color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',           pissn:'0027-8424', eissn:'1091-6490', keyword:'', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
-  { id:'cancercell', name:'Cancer Cell',    pissn:'1535-6108', eissn:'1878-3686', keyword:'',                                                                              color:'#ef5350', bg:'rgba(239,83,80,0.1)'  },
-  { id:'jcb',        name:'J Cell Biol',    pissn:'0021-9525', eissn:'1540-8140', keyword:'',                                                                              color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
-  { id:'biophysj',   name:'Biophys J',      pissn:'0006-3495', eissn:'1542-0086', keyword:'',                                                                              color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+  { id:'nature',     name:'Nature',         pissn:'0028-0836', eissn:'1476-4687', color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',           pissn:'0092-8674', eissn:'1097-4172', color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',        pissn:'0036-8075', eissn:'1095-9203', color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',  pissn:'1465-7392', eissn:'1476-4679', color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol', pissn:'1087-0156', eissn:'1546-1696', color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',     pissn:'1550-4131', eissn:'1932-7420', color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',           pissn:'0027-8424', eissn:'1091-6490', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',    pissn:'1535-6108', eissn:'1878-3686', color:'#ef5350', bg:'rgba(239,83,80,0.1)'  },
+  { id:'jcb',        name:'J Cell Biol',    pissn:'0021-9525', eissn:'1540-8140', color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',      pissn:'0006-3495', eissn:'1542-0086', color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
 ];
 
 const BIORXIV_CATS = [
@@ -357,7 +357,7 @@ const BIORXIV_CATS = [
 // ═══════════════════════════════════════════════════════
 //  CACHE  (localStorage — instant load on revisit)
 // ═══════════════════════════════════════════════════════
-const CACHE_KEY = 'paperpulse_v4';
+const CACHE_KEY = 'paperpulse_v5';
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 function saveCache(papers) {
@@ -500,7 +500,7 @@ async function pmSearch(journal, delayMs) {
   // sort=pub_date: valid PubMed sort parameter (sort=date and sort=pub+date are invalid).
   // retmax=200: fetch up to 200 per journal over 90 days.
   // Staggered 400ms apart → 2.5 req/sec, safely under PubMed's 3 req/sec anonymous limit.
-  const term = `("${journal.pissn}"[issn] OR "${journal.eissn}"[issn])${journal.keyword}${PT_FILTER}`;
+  const term = `("${journal.pissn}"[issn] OR "${journal.eissn}"[issn])${PT_FILTER}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&datetype=edat&reldate=90&sort=pub_date&retmax=200&retmode=json`;
@@ -575,8 +575,68 @@ async function pmAbstracts(papers) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  BIORXIV FETCH  (7-day window per category = small payload)
+//  CROSSREF FETCH — fills the PubMed indexing gap
+//  CrossRef receives DOI registrations at publication time
+//  (often same day), so it has papers before PubMed indexes them.
+//  We run this in parallel with PubMed and merge by DOI.
 // ═══════════════════════════════════════════════════════
+async function fetchCrossRef(journal) {
+  const from = daysAgo(90);
+  // type:journal-article keeps research papers; from-index-date ensures recency.
+  // rows=100 is CrossRef's max per request.
+  // Polite pool (email in User-Agent) gives higher rate limits.
+  const url = `https://api.crossref.org/works?filter=issn:${journal.pissn},type:journal-article,from-index-date:${from}&sort=indexed&order=desc&rows=100&select=DOI,title,author,published,indexed,abstract`;
+  try {
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'PaperPulse/1.0 (researcher academic feed)' }
+    });
+    if (!r.ok) return [];
+    const data = await r.json();
+    const cap = today();
+    return (data.message?.items || [])
+      .filter(item => item.DOI && item.title?.[0])
+      .map(item => {
+        // CrossRef date format: {"date-parts": [[2026, 4, 7]]}
+        const dp = item.published?.['date-parts']?.[0]
+                || item.indexed?.['date-parts']?.[0]
+                || [];
+        const iso = dp.length >= 3
+          ? `${dp[0]}-${String(dp[1]).padStart(2,'0')}-${String(dp[2]).padStart(2,'0')}`
+          : dp.length === 2 ? `${dp[0]}-${String(dp[1]).padStart(2,'0')}-01`
+          : dp[0] ? `${dp[0]}-01-01` : '';
+        const date = iso > cap ? cap : iso;
+
+        // Strip JATS XML tags from abstract (CrossRef wraps in <jats:p> etc.)
+        const abstract = item.abstract
+          ? item.abstract.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim()
+          : null;
+
+        const doi = item.DOI;
+        const authors = (item.author||[]).slice(0,4)
+          .map(a => [a.given, a.family].filter(Boolean).join(' ')).join(', ')
+          + ((item.author||[]).length > 4 ? ' et al.' : '');
+
+        return {
+          id:         'cr-' + doi.replace(/[^a-zA-Z0-9]/g,'-'),
+          title:      item.title[0].replace(/<[^>]+>/g,'').trim() || 'Untitled',
+          authors,
+          abstract,
+          journal,
+          date, dateSort: date,
+          doi,
+          pmid:       null,
+          url:        'https://doi.org/' + doi,
+          isPreprint: false,
+          source:     'crossref',
+        };
+      });
+  } catch(e) {
+    console.warn('CrossRef error', journal.name, e);
+    return [];
+  }
+}
+
+
 async function fetchBioRxiv(cat) {
   // Use a 14-day window and fetch page 0 (100 papers max).
   // Much lighter than 30-day, and recent preprints are what we want.
@@ -607,15 +667,42 @@ async function fetchBioRxiv(cat) {
 
 // ═══════════════════════════════════════════════════════
 //  ASSEMBLE + SORT + DEDUP
+//  Merges CrossRef (real-time) and PubMed (verified metadata).
+//  For papers in both sources, PubMed wins (better abstract/metadata)
+//  but CrossRef fills in papers not yet indexed by PubMed.
 // ═══════════════════════════════════════════════════════
-function assemblePapers(pubmedPapers, bxArrays) {
-  const all = [...pubmedPapers, ...bxArrays.flat()];
-  all.sort((a,b) => new Date(b.dateSort||0) - new Date(a.dateSort||0));
-  const seen = new Set();
+function assemblePapers(pubmedPapers, crossrefArrays, bxArrays) {
+  // Build DOI lookup of PubMed papers
+  const pmByDoi = new Map();
+  pubmedPapers.forEach(p => { if (p.doi) pmByDoi.set(p.doi.toLowerCase(), p); });
+
+  // From CrossRef: only keep papers NOT already in PubMed (fills the indexing gap)
+  const crossrefOnly = crossrefArrays.flat().filter(p =>
+    p.doi && !pmByDoi.has(p.doi.toLowerCase())
+  );
+
+  const all = [...pubmedPapers, ...crossrefOnly, ...bxArrays.flat()];
+
+  // Sort newest first
+  all.sort((a,b) => {
+    const da = a.dateSort ? new Date(a.dateSort + 'T12:00:00') : new Date(0);
+    const db = b.dateSort ? new Date(b.dateSort + 'T12:00:00') : new Date(0);
+    return db - da;
+  });
+
+  // Deduplicate by DOI first, then by title prefix
+  const seenDoi   = new Set();
+  const seenTitle = new Set();
   return all.filter(p => {
-    const key = p.title.toLowerCase().replace(/\s+/g,'').slice(0,60);
-    if (seen.has(key)) return false;
-    seen.add(key); return true;
+    if (p.doi) {
+      const dk = p.doi.toLowerCase();
+      if (seenDoi.has(dk)) return false;
+      seenDoi.add(dk);
+    }
+    const tk = p.title.toLowerCase().replace(/\s+/g,'').slice(0,60);
+    if (seenTitle.has(tk)) return false;
+    seenTitle.add(tk);
+    return true;
   });
 }
 
@@ -634,26 +721,28 @@ async function loadAll(forceRefresh = false) {
     const ago = Math.round((Date.now() - cached.ts) / 60000);
     document.getElementById('last-updated').textContent = `Cached · ${ago}m ago`;
     if (cached.fresh) {
-      // Cache is fresh — no need to re-fetch at all
       btn.classList.remove('spinning');
       return;
     }
-    // Cache is stale — show it but refresh in background
     showStatus('Updating feed in background…');
   } else {
     showStatus('Fetching papers…');
     setProgress(10);
-    renderPapers(); // shows "Loading feed…" empty state
+    renderPapers();
   }
 
-  // ── Phase 1: all searches in parallel (staggered 150ms apart) ──
-  const [searchSettled, ...bxSettled] = await Promise.allSettled([
+  // ── Phase 1: PubMed searches + CrossRef + bioRxiv all in parallel ──
+  // PubMed: staggered 400ms apart to stay under 3 req/sec anonymous limit.
+  // CrossRef: all at once (50 req/sec polite pool limit — no stagger needed).
+  // bioRxiv: all at once.
+  const [searchSettled, crSettled, ...bxSettled] = await Promise.allSettled([
     Promise.allSettled(PUBMED_JOURNALS.map((j,i) => pmSearch(j, i * 400))),
+    Promise.allSettled(PUBMED_JOURNALS.map(j => fetchCrossRef(j))),
     ...BIORXIV_CATS.map(cat => fetchBioRxiv(cat))
   ]);
-  setProgress(50);
+  setProgress(55);
 
-  // ── Phase 2: one batched summary call ──────────────────────────
+  // ── Phase 2: batched PubMed summary ────────────────────────────
   const idMap = {};
   if (searchSettled.status === 'fulfilled') {
     searchSettled.value.forEach(r => {
@@ -662,16 +751,19 @@ async function loadAll(forceRefresh = false) {
   }
   showStatus('Loading paper details…');
   const pubmedPapers = await pmSummary(idMap);
-  setProgress(75);
+  setProgress(80);
 
-  // ── Phase 3: one batched abstract call ─────────────────────────
+  // ── Phase 3: batched PubMed abstracts ──────────────────────────
   showStatus('Fetching abstracts…');
   await pmAbstracts(pubmedPapers);
   setProgress(95);
 
-  // ── Assemble ───────────────────────────────────────────────────
+  // ── Assemble: CrossRef fills gap for papers not yet in PubMed ──
+  const crossrefArrays = crSettled.status === 'fulfilled'
+    ? crSettled.value.map(r => r.status === 'fulfilled' ? r.value : [])
+    : [];
   const bxArrays = bxSettled.map(r => r.status === 'fulfilled' ? r.value : []);
-  allPapers = assemblePapers(pubmedPapers, bxArrays);
+  allPapers = assemblePapers(pubmedPapers, crossrefArrays, bxArrays);
 
   saveCache(allPapers);
   setProgress(100);

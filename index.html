@@ -575,32 +575,37 @@ async function pmAbstracts(papers) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  CROSSREF FETCH — fills the PubMed indexing lag (1–7 days)
+//  CROSSREF FETCH
 //
-//  Why Cell papers show wrong dates in PubMed:
-//  Cell Press registers DOIs with a "published" date = print issue date
-//  (e.g. May 2026 even when the paper went online April 7).
-//  PubMed's sortpubdate inherits this and shows the wrong date.
+//  Two critical fixes vs the naive approach:
 //
-//  CrossRef fix: use "published-online" first (actual online date),
-//  fall back to "indexed" (when CrossRef processed it, ~same day as
-//  online pub), and only use "published" (print date) as last resort.
-//  This gives correct dates AND catches papers before PubMed indexes them.
+//  1. Filter = from-online-pub-date (NOT from-index-date)
+//     CrossRef re-indexes old records whenever metadata changes
+//     (e.g. Cell Press finalises print issue assignment weeks later).
+//     from-index-date returns those old papers with a recent indexed
+//     date, making Feb 9 papers appear as Apr 2.
+//     from-online-pub-date filters by actual online publication date —
+//     only papers genuinely published recently come back.
+//
+//  2. Date = published-online only, fallback to published-print
+//     Never use "indexed" as a display date — it reflects CrossRef's
+//     internal processing time, not when the paper was published.
+//     published-online = day the paper appeared on the journal site.
+//     published-print  = print issue date (may be future, gets capped).
 // ═══════════════════════════════════════════════════════
-function parseCrossRefDate(dateObj) {
-  // CrossRef date format: { "date-parts": [[2026, 4, 7]] }
+function parseCRDate(dateObj) {
   const dp = dateObj?.['date-parts']?.[0];
-  if (!dp || !dp[0]) return null;
-  const y = dp[0], mo = dp[1] || 1, d = dp[2] || 1;
-  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  if (!dp?.[0]) return null;
+  const y = dp[0], mo = String(dp[1] || 1).padStart(2,'0'), d = String(dp[2] || 1).padStart(2,'0');
+  return `${y}-${mo}-${d}`;
 }
 
 async function fetchCrossRef(journal) {
   const from = daysAgo(90);
-  // Include published-online in select — this is the actual online publication date.
-  // For Cell Press journals, "published" = print issue date (future); 
-  // "published-online" = day the paper appeared on the journal website.
-  const url = `https://api.crossref.org/works?filter=issn:${journal.pissn},type:journal-article,from-index-date:${from}&sort=indexed&order=desc&rows=100&select=DOI,title,author,abstract,published-online,published-print,indexed`;
+  // from-online-pub-date: only papers actually published online in the last 90 days.
+  // published-online and published-print are selected to get the correct date.
+  // indexed is intentionally excluded from select — we never use it as a date.
+  const url = `https://api.crossref.org/works?filter=issn:${journal.pissn},type:journal-article,from-online-pub-date:${from}&sort=published&order=desc&rows=100&select=DOI,title,author,abstract,published-online,published-print`;
   try {
     const r = await fetch(url, {
       headers: { 'User-Agent': 'PaperPulse/1.0 (academic research feed)' }
@@ -608,20 +613,16 @@ async function fetchCrossRef(journal) {
     if (!r.ok) return [];
     const data = await r.json();
     const cap = today();
-
     return (data.message?.items || [])
       .filter(item => item.DOI && item.title?.[0])
       .map(item => {
-        // Date priority:
-        // 1. published-online → actual date paper appeared on journal website
-        // 2. indexed          → date CrossRef processed it (within hours of online pub)
-        // 3. published-print  → print issue date (often weeks/months future) — cap it
-        const onlineIso = parseCrossRefDate(item['published-online']);
-        const indexedIso = parseCrossRefDate(item['indexed']);
-        const printIso  = parseCrossRefDate(item['published-print']);
-
-        let date = onlineIso || indexedIso || printIso || '';
-        if (date > cap) date = cap; // never show a future date
+        // published-online first (actual web pub date).
+        // published-print only if published-online is absent (and it may be future — cap it).
+        // Never fall back to indexed.
+        const onlineIso = parseCRDate(item['published-online']);
+        const printIso  = parseCRDate(item['published-print']);
+        let date = onlineIso || printIso || '';
+        if (date > cap) date = cap;
 
         const doi = item.DOI;
         const abstract = item.abstract
@@ -650,7 +651,9 @@ async function fetchCrossRef(journal) {
   }
 }
 
-
+// ═══════════════════════════════════════════════════════
+//  BIORXIV FETCH  (14-day window per category)
+// ═══════════════════════════════════════════════════════
 async function fetchBioRxiv(cat) {
   // Use a 14-day window and fetch page 0 (100 papers max).
   // Much lighter than 30-day, and recent preprints are what we want.
@@ -681,30 +684,23 @@ async function fetchBioRxiv(cat) {
 
 // ═══════════════════════════════════════════════════════
 //  ASSEMBLE + SORT + DEDUP
-//  PubMed wins for papers in both sources (better abstracts/metadata).
+//  PubMed wins for papers in both sources (richer metadata).
 //  CrossRef fills in papers not yet indexed by PubMed.
 // ═══════════════════════════════════════════════════════
 function assemblePapers(pubmedPapers, crossrefArrays, bxArrays) {
-  // Index PubMed papers by DOI for fast dedup lookup
-  const pmByDoi = new Map();
-  pubmedPapers.forEach(p => { if (p.doi) pmByDoi.set(p.doi.toLowerCase(), true); });
-
-  // CrossRef: only keep papers not already covered by PubMed
+  const pmDois = new Set(pubmedPapers.filter(p => p.doi).map(p => p.doi.toLowerCase()));
   const crossrefOnly = crossrefArrays.flat()
-    .filter(p => p.doi && !pmByDoi.has(p.doi.toLowerCase()));
+    .filter(p => p.doi && !pmDois.has(p.doi.toLowerCase()));
 
   const all = [...pubmedPapers, ...crossrefOnly, ...bxArrays.flat()];
 
-  // Sort newest first (treat missing dates as oldest)
   all.sort((a, b) => {
     const da = a.dateSort ? new Date(a.dateSort + 'T12:00:00') : new Date(0);
     const db = b.dateSort ? new Date(b.dateSort + 'T12:00:00') : new Date(0);
     return db - da;
   });
 
-  // Deduplicate: DOI first, then title prefix
-  const seenDoi   = new Set();
-  const seenTitle = new Set();
+  const seenDoi = new Set(), seenTitle = new Set();
   return all.filter(p => {
     if (p.doi) {
       const dk = p.doi.toLowerCase();
@@ -746,8 +742,8 @@ async function loadAll(forceRefresh = false) {
   }
 
   // ── Phase 1: PubMed + CrossRef + bioRxiv all in parallel ──────
-  // PubMed staggered at 400ms (2.5 req/sec, under 3 req/sec limit).
-  // CrossRef all at once (generous rate limit, no stagger needed).
+  // PubMed: staggered 400ms (2.5 req/sec, under 3 req/sec limit).
+  // CrossRef: all at once (generous rate limit).
   const [searchSettled, crSettled, ...bxSettled] = await Promise.allSettled([
     Promise.allSettled(PUBMED_JOURNALS.map((j,i) => pmSearch(j, i * 400))),
     Promise.allSettled(PUBMED_JOURNALS.map(j => fetchCrossRef(j))),

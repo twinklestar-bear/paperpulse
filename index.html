@@ -385,66 +385,104 @@ function resolveDate(epubdate, pubdate) {
 }
 
 
-  // doi.org redirects to the official publisher/journal page
+function buildJournalUrl(doi, pmid) {
   if (doi) return `https://doi.org/${doi}`;
-  // Only fall back to PubMed if truly no DOI is available
   return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
 }
 
-// ── PUBMED FETCH ─────────────────────────────────────────────────
-async function fetchPubMed(journal) {
+// ── PUBMED: PHASE 1 — parallel searches, returns {journal, ids} ──
+
+
+// ── PUBMED: PHASE 1 — staggered searches (respect 3 req/sec limit)
+// Fires one request every 150ms — safe under PubMed's rate limit,
+// but all 10 complete in ~1.5s instead of the old 5s+ sequential approach.
+async function searchPubMed(journal, delayMs) {
   const BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-  const days = 60;
+  await sleep(delayMs);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const url = `${BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search)}&datetype=pdat&reldate=60&sort=pub+date&retmax=8&retmode=json`;
+      const res = await fetch(url);
+      if (res.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
+      if (!res.ok) return { journal, ids: [] };
+      const data = await res.json();
+      return { journal, ids: data.esearchresult?.idlist || [] };
+    } catch(e) {
+      if (attempt < 2) { await sleep(800 * (attempt + 1)); continue; }
+      console.warn('PubMed search error', journal.name, e);
+      return { journal, ids: [] };
+    }
+  }
+  return { journal, ids: [] };
+}
+
+// ── PUBMED: PHASE 2 — one batched esummary for all IDs ───────────
+async function fetchSummaries(idJournalMap) {
+  const BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  const allIds = Object.keys(idJournalMap);
+  if (!allIds.length) return [];
   try {
-    const searchUrl = `${BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search)}&datetype=pdat&reldate=${days}&sort=pub+date&retmax=8&retmode=json`;
-    const searchRes = await fetch(searchUrl);
-    if (!searchRes.ok) return [];
-    const searchData = await searchRes.json();
-    const ids = searchData.esearchresult?.idlist || [];
-    if (!ids.length) return [];
-
-    await sleep(150);
-    const summaryUrl = `${BASE}/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
-    const summaryRes = await fetch(summaryUrl);
-    if (!summaryRes.ok) return [];
-    const summaryData = await summaryRes.json();
-    const result = summaryData.result || {};
-
-    return ids.map(id => {
+    const url = `${BASE}/esummary.fcgi?db=pubmed&id=${allIds.join(',')}&retmode=json`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const result = data.result || {};
+    return allIds.map(id => {
       const p = result[id];
       if (!p) return null;
+      const journal = idJournalMap[id];
       const authors = (p.authors || []).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4?' et al.':'');
+      const doi = extractDoi(p.elocationid, p.articleids);
       return {
         id: 'pm-' + id,
         title: p.title?.replace(/\.$/, '') || 'Untitled',
         authors,
         abstract: p.abstracttext || null,
-        journal: journal,
+        journal,
         date: resolveDate(p.epubdate, p.pubdate),
         dateSort: resolveDate(p.epubdate, p.pubdate),
-        doi: extractDoi(p.elocationid, p.articleids),
+        doi,
         pmid: id,
         isPreprint: false,
         type: 'journal',
-        url: buildJournalUrl(extractDoi(p.elocationid, p.articleids), id),
+        url: buildJournalUrl(doi, id),
       };
     }).filter(Boolean);
   } catch(e) {
-    console.warn('PubMed error for', journal.name, e);
+    console.warn('PubMed summary error', e);
     return [];
   }
+}
+
+// ── PUBMED: PHASE 3 — one batched efetch for all abstracts ───────
+async function fetchAbstracts(papers) {
+  const need = papers.filter(p => !p.isPreprint && !p.abstract && p.pmid);
+  if (!need.length) return;
+  try {
+    const ids = need.map(p => p.pmid).join(',');
+    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids}&rettype=abstract&retmode=xml`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+    xml.querySelectorAll('PubmedArticle').forEach(art => {
+      const pmid = art.querySelector('PMID')?.textContent;
+      const abs  = [...art.querySelectorAll('AbstractText')].map(n => n.textContent).join(' ');
+      if (pmid && abs) {
+        const paper = papers.find(p => p.pmid === pmid);
+        if (paper) paper.abstract = abs;
+      }
+    });
+  } catch(e) { /* silent fail */ }
 }
 
 // ── BIORXIV FETCH ────────────────────────────────────────────────
 async function fetchBioRxiv(cat) {
   try {
-    const start = daysAgo(30);
-    const end = today();
-    const url = `https://api.biorxiv.org/details/biorxiv/${start}/${end}/0/json`;
+    const url = `https://api.biorxiv.org/details/biorxiv/${daysAgo(30)}/${today()}/0/json`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
-    const papers = (data.collection || [])
+    return (data.collection || [])
       .filter(p => p.category?.toLowerCase() === cat.category.toLowerCase())
       .slice(0, 10)
       .map(p => ({
@@ -461,87 +499,61 @@ async function fetchBioRxiv(cat) {
         type: 'preprint',
         url: p.doi ? `https://doi.org/${p.doi}` : null,
       }));
-    return papers;
   } catch(e) {
-    console.warn('bioRxiv error for', cat.category, e);
+    console.warn('bioRxiv error', cat.category, e);
     return [];
   }
-}
-
-// ── FETCH ABSTRACTS FOR PUBMED ───────────────────────────────────
-async function enrichAbstracts(papers) {
-  const needAbstract = papers.filter(p => !p.isPreprint && !p.abstract && p.pmid);
-  if (!needAbstract.length) return;
-  try {
-    const ids = needAbstract.map(p=>p.pmid).join(',');
-    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids}&rettype=abstract&retmode=xml`;
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const text = await res.text();
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(text, 'text/xml');
-    const articles = xml.querySelectorAll('PubmedArticle');
-    articles.forEach(art => {
-      const pmid = art.querySelector('PMID')?.textContent;
-      const abs  = art.querySelector('AbstractText')?.textContent;
-      if (pmid && abs) {
-        const paper = papers.find(p => p.pmid === pmid);
-        if (paper) paper.abstract = abs;
-      }
-    });
-  } catch(e) { /* silent fail */ }
 }
 
 // ── MAIN LOAD ────────────────────────────────────────────────────
 async function loadAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
-  loadedCount = 0;
   allPapers = [];
-  showStatus(`Connecting to ${totalSources} sources…`);
-  setProgress(5);
-  renderPapers(); // show loading state
+  showStatus('Searching all sources in parallel…');
+  setProgress(10);
+  renderPapers();
 
-  const results = [];
+  // ── Step 1: staggered PubMed searches + parallel bioRxiv ──
+  // PubMed allows 3 req/sec without an API key, so we stagger by 150ms each.
+  // All 10 searches fire within ~1.5s and run concurrently after their delay.
+  const [searchResults, ...bxResults] = await Promise.allSettled([
+    Promise.allSettled(PUBMED_JOURNALS.map((j, i) => searchPubMed(j, i * 150))),
+    ...BIORXIV_CATS.map(cat => fetchBioRxiv(cat))
+  ]);
 
-  // bioRxiv (parallel, no rate limit issue)
-  const bxPromises = BIORXIV_CATS.map(cat =>
-    fetchBioRxiv(cat).then(papers => {
-      results.push(...papers);
-      loadedCount++;
-      const pct = 5 + (loadedCount / totalSources) * 70;
-      setProgress(pct);
-      showStatus(`Loaded ${loadedCount}/${totalSources} sources…`);
-    })
-  );
-  await Promise.all(bxPromises);
+  setProgress(45);
+  showStatus('Fetching paper details…');
 
-  // PubMed (sequential with delay to respect rate limits)
-  for (const journal of PUBMED_JOURNALS) {
-    const papers = await fetchPubMed(journal);
-    results.push(...papers);
-    loadedCount++;
-    const pct = 5 + (loadedCount / totalSources) * 70;
-    setProgress(pct);
-    showStatus(`Loaded ${journal.name}… (${loadedCount}/${totalSources})`);
-    await sleep(350);
+  // ── Step 2: collect all PubMed IDs → one batched esummary ──
+  const idJournalMap = {};
+  if (searchResults.status === 'fulfilled') {
+    searchResults.value.forEach(r => {
+      if (r.status === 'fulfilled') {
+        r.value.ids.forEach(id => { idJournalMap[id] = r.value.journal; });
+      }
+    });
   }
 
-  allPapers = results;
-  setProgress(80);
+  // ── Step 3: one batched summary call + collect bioRxiv ──
+  const [pubmedPapers, ...bxPaperArrays] = await Promise.all([
+    fetchSummaries(idJournalMap),
+    ...bxResults.map(r => Promise.resolve(r.status === 'fulfilled' ? r.value : []))
+  ]);
+
+  setProgress(75);
   showStatus('Fetching abstracts…');
-  await enrichAbstracts(allPapers);
 
-  // Sort by date descending
-  allPapers.sort((a,b) => {
-    const da = new Date(a.dateSort || 0);
-    const db = new Date(b.dateSort || 0);
-    return db - da;
-  });
+  // ── Step 4: one batched abstract call for missing abstracts ──
+  await fetchAbstracts(pubmedPapers);
 
-  // Deduplicate by title similarity
+  setProgress(95);
+
+  // ── Assemble, sort, deduplicate ──
+  const all = [...pubmedPapers, ...bxPaperArrays.flat()];
+  all.sort((a, b) => new Date(b.dateSort||0) - new Date(a.dateSort||0));
   const seen = new Set();
-  allPapers = allPapers.filter(p => {
+  allPapers = all.filter(p => {
     const key = p.title.toLowerCase().replace(/\s+/g,'').substring(0,60);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -551,10 +563,8 @@ async function loadAll() {
   setProgress(100);
   hideStatus();
   btn.classList.remove('spinning');
-
-  const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('last-updated').textContent = `Updated ${now}`;
-
+  document.getElementById('last-updated').textContent =
+    `Updated ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
   renderPapers();
 }
 

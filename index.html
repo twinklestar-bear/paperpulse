@@ -292,22 +292,26 @@
 // ═══════════════════════════════════════════════════════
 //  JOURNAL CONFIG
 // ═══════════════════════════════════════════════════════
-// Positive filter: must be a Journal Article.
-// Negative filter: exclude non-research content types.
-// Using both together is the most reliable way to get only original research + reviews.
-const PT_FILTER = ' AND "Journal Article"[pt] NOT ("Comment"[pt] OR "Editorial"[pt] OR "News"[pt] OR "Letter"[pt] OR "Published Erratum"[pt] OR "Retraction of Publication"[pt] OR "Expression of Concern"[pt] OR "Biography"[pt] OR "Interview"[pt] OR "Lecture"[pt] OR "Legal Case"[pt] OR "Newspaper Article"[pt])';
 
+// Publication-type filter appended to every PubMed query.
+// Positive "Journal Article"[pt] + negative exclusions = research articles only.
+const PT_FILTER = ' AND "Journal Article"[pt] NOT ("Comment"[pt] OR "Editorial"[pt] OR "News"[pt] OR "Letter"[pt] OR "Published Erratum"[pt] OR "Retraction of Publication"[pt] OR "Expression of Concern"[pt] OR "Biography"[pt] OR "Interview"[pt] OR "Newspaper Article"[pt])';
+
+// Each journal is identified by its unique ISSN — more reliable than title abbreviations.
+// Print ISSN used throughout (universally recognised by PubMed).
+// keyword: optional topic filter for broad journals (Nature, Science, PNAS) to stay relevant.
+//          Left empty for specialist journals that are already focused on the field.
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',         search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
-  { id:'cell',       name:'Cell',           search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',            color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',        search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',         color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
-  { id:'ncb',        name:'Nat Cell Biol',  search:'"Nat Cell Biol"[ta]',                                                      color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
-  { id:'nbiotech',   name:'Nat Biotechnol', search:'"Nat Biotechnol"[ta]',                                                     color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
-  { id:'cellmet',    name:'Cell Metab',     search:'"Cell Metab"[ta]',                                                         color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',           search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
-  { id:'cancercell', name:'Cancer Cell',    search:'"Cancer Cell"[ta]',                                                        color:'#ef5350', bg:'rgba(239,83,80,0.1)' },
-  { id:'jcb',        name:'J Cell Biol',    search:'"J Cell Biol"[ta]',                                                        color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
-  { id:'biophysj',   name:'Biophys J',      search:'"Biophys J"[ta]',                                                          color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+  { id:'nature',     name:'Nature',         issn:'0028-0836', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                                   color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',           issn:'0092-8674', keyword:'',                                                                                       color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',        issn:'0036-8075', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',                                   color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',  issn:'1465-7392', keyword:'',                                                                                       color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol', issn:'1087-0156', keyword:'',                                                                                       color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',     issn:'1550-4131', keyword:'',                                                                                       color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',           issn:'0027-8424', keyword:' AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',           color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',    issn:'1535-6108', keyword:'',                                                                                       color:'#ef5350', bg:'rgba(239,83,80,0.1)'  },
+  { id:'jcb',        name:'J Cell Biol',    issn:'0021-9525', keyword:'',                                                                                       color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',      issn:'0006-3495', keyword:'',                                                                                       color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
 ];
 
 const BIORXIV_CATS = [
@@ -426,9 +430,15 @@ const EUTILS = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
 async function pmSearch(journal, delayMs) {
   await sleep(delayMs);
+  // Query: ISSN[issn] uniquely identifies the journal.
+  // keyword narrows broad journals to relevant topics.
+  // PT_FILTER keeps research articles only.
+  // datetype=edat: matches when PubMed indexed the paper (= online pub date),
+  //   NOT pdat (print issue date) which is often weeks/months in the future.
+  const term = `"${journal.issn}"[issn]${journal.keyword}${PT_FILTER}`;
   for (let i = 0; i < 3; i++) {
     try {
-      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search + PT_FILTER)}&datetype=pdat&reldate=90&sort=pub+date&retmax=200&retmode=json`;
+      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&datetype=edat&reldate=90&sort=date&retmax=200&retmode=json`;
       const r = await fetch(url);
       if (r.status === 429) { await sleep(1200 * (i+1)); continue; }
       if (!r.ok) return { journal, ids:[] };
@@ -444,14 +454,11 @@ async function pmSearch(journal, delayMs) {
 async function pmSummary(idJournalMap) {
   const ids = Object.keys(idJournalMap);
   if (!ids.length) return [];
-
-  // Chunk into batches of 200 — large ID lists cause silent truncation in PubMed URLs
+  // Chunk into 200 — large ID lists silently truncate in a single PubMed URL
   const CHUNK = 200;
-  const chunks = [];
-  for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK));
-
-  const allPapers = [];
-  for (const chunk of chunks) {
+  const results = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
     try {
       const r = await fetch(`${EUTILS}/esummary.fcgi?db=pubmed&id=${chunk.join(',')}&retmode=json`);
       if (!r.ok) continue;
@@ -463,8 +470,8 @@ async function pmSummary(idJournalMap) {
         const doi = extractDoi(p.elocationid, p.articleids);
         const url = makePaperUrl(doi, id);
         if (!url) return;
-        allPapers.push({
-          id: 'pm-' + id,
+        results.push({
+          id:       'pm-' + id,
           title:    (p.title || '').replace(/\.$/, '') || 'Untitled',
           authors:  (p.authors||[]).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4 ? ' et al.' : ''),
           abstract: p.abstracttext || null,
@@ -475,17 +482,16 @@ async function pmSummary(idJournalMap) {
           isPreprint: false,
         });
       });
-      if (chunks.length > 1) await sleep(200); // brief pause between chunks
     } catch(e) { /* continue with next chunk */ }
+    if (i + CHUNK < ids.length) await sleep(200);
   }
-  return allPapers;
+  return results;
 }
 
 async function pmAbstracts(papers) {
   const need = papers.filter(p => !p.abstract && p.pmid);
   if (!need.length) return;
-
-  // Chunk into 100 — XML responses are large, chunking avoids timeouts
+  // Chunk into 100 — XML responses are heavy; chunking avoids timeouts
   const CHUNK = 100;
   for (let i = 0; i < need.length; i += CHUNK) {
     const chunk = need.slice(i, i + CHUNK);
@@ -498,8 +504,8 @@ async function pmAbstracts(papers) {
         const abs  = [...art.querySelectorAll('AbstractText')].map(n=>n.textContent).join(' ').trim();
         if (pmid && abs) { const p = papers.find(x => x.pmid === pmid); if (p) p.abstract = abs; }
       });
-      if (i + CHUNK < need.length) await sleep(300);
     } catch(e) { /* continue */ }
+    if (i + CHUNK < need.length) await sleep(300);
   }
 }
 

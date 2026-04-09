@@ -253,7 +253,7 @@
     </div>
     <div class="header-meta">
       <span class="last-updated" id="last-updated">Not yet loaded</span>
-      <button id="refresh-btn" onclick="loadAll()">
+      <button id="refresh-btn">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
           <path d="M3 3v5h5"/>
@@ -289,55 +289,79 @@
 </main>
 
 <script>
-// ── JOURNAL CONFIG ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  JOURNAL CONFIG
+// ═══════════════════════════════════════════════════════
 const PUBMED_JOURNALS = [
-  { id:'nature',     name:'Nature',                  search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])', color:'#ef5350', textColor:'#ef5350', bg:'rgba(239,83,80,0.08)' },
-  { id:'cell',       name:'Cell',                    search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',   color:'#ff8a65', textColor:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
-  { id:'science',    name:'Science',                 search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab] OR "cell biology"[tiab])',color:'#ffca28', textColor:'#ffca28', bg:'rgba(255,202,40,0.08)' },
-  { id:'ncb',        name:'Nat Cell Biol',           search:'"Nat Cell Biol"[ta]',   color:'#66bb6a', textColor:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
-  { id:'nbiotech',   name:'Nat Biotechnol',          search:'"Nat Biotechnol"[ta] AND (cancer[tiab] OR tumor[tiab] OR cell[tiab])', color:'#26c6da', textColor:'#26c6da', bg:'rgba(38,198,218,0.08)' },
-  { id:'cellmet',    name:'Cell Metab',              search:'"Cell Metab"[ta]',       color:'#ab47bc', textColor:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
-  { id:'pnas',       name:'PNAS',                    search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR "cell biology"[tiab] OR oncogen*[tiab])', color:'#7e57c2', textColor:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
-  { id:'cancercell', name:'Cancer Cell',             search:'"Cancer Cell"[ta]',      color:'#ef5350', textColor:'#ef5350', bg:'rgba(239,83,80,0.1)' },
-  { id:'jcb',        name:'J Cell Biol',             search:'"J Cell Biol"[ta]',      color:'#26a69a', textColor:'#26a69a', bg:'rgba(38,166,154,0.08)' },
-  { id:'biophysj',   name:'Biophys J',               search:'"Biophys J"[ta]',        color:'#42a5f5', textColor:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
+  { id:'nature',     name:'Nature',         search:'"Nature"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',          color:'#ef5350', bg:'rgba(239,83,80,0.08)' },
+  { id:'cell',       name:'Cell',           search:'"Cell"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',            color:'#ff8a65', bg:'rgba(255,138,101,0.08)' },
+  { id:'science',    name:'Science',        search:'"Science"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])',         color:'#ffca28', bg:'rgba(255,202,40,0.08)' },
+  { id:'ncb',        name:'Nat Cell Biol',  search:'"Nat Cell Biol"[ta]',                                                      color:'#66bb6a', bg:'rgba(102,187,106,0.08)' },
+  { id:'nbiotech',   name:'Nat Biotechnol', search:'"Nat Biotechnol"[ta]',                                                     color:'#26c6da', bg:'rgba(38,198,218,0.08)' },
+  { id:'cellmet',    name:'Cell Metab',     search:'"Cell Metab"[ta]',                                                         color:'#ab47bc', bg:'rgba(171,71,188,0.08)' },
+  { id:'pnas',       name:'PNAS',           search:'"Proc Natl Acad Sci U S A"[ta] AND (cancer[tiab] OR tumor[tiab] OR oncogen*[tiab])', color:'#7e57c2', bg:'rgba(126,87,194,0.08)' },
+  { id:'cancercell', name:'Cancer Cell',    search:'"Cancer Cell"[ta]',                                                        color:'#ef5350', bg:'rgba(239,83,80,0.1)' },
+  { id:'jcb',        name:'J Cell Biol',    search:'"J Cell Biol"[ta]',                                                        color:'#26a69a', bg:'rgba(38,166,154,0.08)' },
+  { id:'biophysj',   name:'Biophys J',      search:'"Biophys J"[ta]',                                                          color:'#42a5f5', bg:'rgba(66,165,245,0.08)' },
 ];
 
 const BIORXIV_CATS = [
-  { id:'biorxiv-cancer',    name:'bioRxiv · Cancer',     category:'cancer biology',    color:'#f48fb1', textColor:'#f48fb1', bg:'rgba(244,143,177,0.08)', isPreprint:true },
-  { id:'biorxiv-biophys',   name:'bioRxiv · Biophysics', category:'biophysics',        color:'#80cbc4', textColor:'#80cbc4', bg:'rgba(128,203,196,0.08)', isPreprint:true },
-  { id:'biorxiv-synbio',    name:'bioRxiv · Syn Bio',    category:'synthetic biology', color:'#a5d6a7', textColor:'#a5d6a7', bg:'rgba(165,214,167,0.08)', isPreprint:true },
+  { id:'biorxiv-cancer',  name:'bioRxiv · Cancer',    category:'cancer biology',    color:'#f48fb1', bg:'rgba(244,143,177,0.08)', isPreprint:true },
+  { id:'biorxiv-biophys', name:'bioRxiv · Biophysics',category:'biophysics',        color:'#80cbc4', bg:'rgba(128,203,196,0.08)', isPreprint:true },
+  { id:'biorxiv-synbio',  name:'bioRxiv · Syn Bio',   category:'synthetic biology', color:'#a5d6a7', bg:'rgba(165,214,167,0.08)', isPreprint:true },
 ];
 
-// ── STATE ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  CACHE  (localStorage — instant load on revisit)
+// ═══════════════════════════════════════════════════════
+const CACHE_KEY = 'paperpulse_v2';
+const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+function saveCache(papers) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), papers }));
+  } catch(e) { /* storage full — silently skip */ }
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, papers } = JSON.parse(raw);
+    return { papers, fresh: (Date.now() - ts) < CACHE_TTL, ts };
+  } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
 let allPapers = [];
 let currentFilter = 'all';
-let loadedCount = 0;
-let totalSources = PUBMED_JOURNALS.length + BIORXIV_CATS.length;
 
-// ── UTILITIES ───────────────────────────────────────────────────
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const today = () => new Date().toISOString().split('T')[0];
-const daysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
-const fmt = d => { try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return d; } };
+// ═══════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════
+const sleep  = ms => new Promise(r => setTimeout(r, ms));
+const today  = ()  => new Date().toISOString().split('T')[0];
+const daysAgo = n  => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
+const fmt    = d   => { try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return d||''; } };
 
 function setProgress(pct) {
   document.getElementById('progress-bar').style.width = pct + '%';
-  if (pct >= 100) setTimeout(() => document.getElementById('progress-bar').style.width='0%', 600);
+  if (pct >= 100) setTimeout(() => document.getElementById('progress-bar').style.width = '0%', 700);
 }
-
 function showStatus(msg) {
-  const bar = document.getElementById('status-bar');
   document.getElementById('status-text').textContent = msg;
-  bar.classList.add('visible');
+  document.getElementById('status-bar').classList.add('visible');
 }
 function hideStatus() { document.getElementById('status-bar').classList.remove('visible'); }
 
-// ── FILTER SETUP ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  FILTERS
+// ═══════════════════════════════════════════════════════
 function buildFilterButtons() {
   const inner = document.getElementById('filter-inner');
-  const all = [...PUBMED_JOURNALS, ...BIORXIV_CATS];
-  all.forEach(src => {
+  [...PUBMED_JOURNALS, ...BIORXIV_CATS].forEach(src => {
     const btn = document.createElement('button');
     btn.className = 'filter-btn';
     btn.dataset.filter = src.id;
@@ -354,266 +378,252 @@ function setFilter(f, btn) {
   renderPapers();
 }
 
-// ── DOI & URL HELPERS ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  DOI / URL HELPERS  — never produce a broken link
+// ═══════════════════════════════════════════════════════
 function extractDoi(elocationid, articleids) {
+  // Try elocationid first: "doi: 10.1038/xxx" or "pii: S0092..." etc.
   if (elocationid) {
-    const parts = elocationid.split(';').map(s => s.trim());
-    for (const part of parts) {
-      const m = part.match(/^doi:\s*(.+)/i);
+    for (const part of elocationid.split(';')) {
+      const m = part.trim().match(/^doi:\s*(.+)/i);
       if (m) return m[1].trim();
     }
   }
+  // Fallback: articleids array
   if (Array.isArray(articleids)) {
-    const doiEntry = articleids.find(a => a.idtype === 'doi');
-    if (doiEntry?.value) return doiEntry.value.trim();
+    const e = articleids.find(a => a.idtype === 'doi');
+    if (e && e.value && e.value !== '0') return e.value.trim();
   }
   return null;
 }
 
+function makePaperUrl(doi, pmid) {
+  // Prefer DOI → lands on the official journal page
+  if (doi && doi !== 'null' && doi !== 'undefined') return 'https://doi.org/' + doi;
+  // Fallback: PubMed abstract page (always works)
+  if (pmid) return 'https://pubmed.ncbi.nlm.nih.gov/' + pmid + '/';
+  return null;
+}
+
 function resolveDate(epubdate, pubdate) {
-  const todayStr = today();
-  // Prefer epubdate (actual online publication date) over pubdate (print issue date)
-  // epubdate is empty string when not set
-  const raw = (epubdate && epubdate.trim() !== '') ? epubdate : pubdate;
+  const cap = today();
+  const raw = (epubdate && epubdate.trim()) ? epubdate : (pubdate || '');
   if (!raw) return '';
-  // Parse — PubMed formats: "2025 Apr 03", "2025 Apr", "2025"
-  const parsed = new Date(raw);
-  if (isNaN(parsed.getTime())) return raw; // unparseable, return as-is
-  // Cap future dates at today
-  const todayDate = new Date(todayStr);
-  return parsed > todayDate ? todayStr : raw;
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d > new Date(cap) ? cap : raw;
 }
 
+// ═══════════════════════════════════════════════════════
+//  PUBMED FETCH  (staggered + retry)
+// ═══════════════════════════════════════════════════════
+const EUTILS = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
-function buildJournalUrl(doi, pmid) {
-  if (doi) return `https://doi.org/${doi}`;
-  return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
-}
-
-// ── PUBMED: PHASE 1 — parallel searches, returns {journal, ids} ──
-
-
-// ── PUBMED: PHASE 1 — staggered searches (respect 3 req/sec limit)
-// Fires one request every 150ms — safe under PubMed's rate limit,
-// but all 10 complete in ~1.5s instead of the old 5s+ sequential approach.
-async function searchPubMed(journal, delayMs) {
-  const BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+async function pmSearch(journal, delayMs) {
   await sleep(delayMs);
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let i = 0; i < 3; i++) {
     try {
-      const url = `${BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search)}&datetype=pdat&reldate=60&sort=pub+date&retmax=8&retmode=json`;
-      const res = await fetch(url);
-      if (res.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
-      if (!res.ok) return { journal, ids: [] };
-      const data = await res.json();
-      return { journal, ids: data.esearchresult?.idlist || [] };
+      const url = `${EUTILS}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(journal.search)}&datetype=pdat&reldate=60&sort=pub+date&retmax=8&retmode=json`;
+      const r = await fetch(url);
+      if (r.status === 429) { await sleep(1200 * (i+1)); continue; }
+      if (!r.ok) return { journal, ids:[] };
+      const d = await r.json();
+      return { journal, ids: d.esearchresult?.idlist || [] };
     } catch(e) {
-      if (attempt < 2) { await sleep(800 * (attempt + 1)); continue; }
-      console.warn('PubMed search error', journal.name, e);
-      return { journal, ids: [] };
+      if (i < 2) { await sleep(900 * (i+1)); continue; }
     }
   }
-  return { journal, ids: [] };
+  return { journal, ids:[] };
 }
 
-// ── PUBMED: PHASE 2 — one batched esummary for all IDs ───────────
-async function fetchSummaries(idJournalMap) {
-  const BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-  const allIds = Object.keys(idJournalMap);
-  if (!allIds.length) return [];
+async function pmSummary(idJournalMap) {
+  const ids = Object.keys(idJournalMap);
+  if (!ids.length) return [];
   try {
-    const url = `${BASE}/esummary.fcgi?db=pubmed&id=${allIds.join(',')}&retmode=json`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
-    const result = data.result || {};
-    return allIds.map(id => {
-      const p = result[id];
-      if (!p) return null;
-      const journal = idJournalMap[id];
-      const authors = (p.authors || []).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4?' et al.':'');
+    const r = await fetch(`${EUTILS}/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    const res = data.result || {};
+    return ids.flatMap(id => {
+      const p = res[id];
+      if (!p || p.error) return [];
       const doi = extractDoi(p.elocationid, p.articleids);
-      return {
+      const url = makePaperUrl(doi, id);
+      if (!url) return []; // skip if no usable link at all
+      return [{
         id: 'pm-' + id,
-        title: p.title?.replace(/\.$/, '') || 'Untitled',
-        authors,
+        title:    (p.title || '').replace(/\.$/, '') || 'Untitled',
+        authors:  (p.authors||[]).slice(0,4).map(a=>a.name).join(', ') + ((p.authors||[]).length>4 ? ' et al.' : ''),
         abstract: p.abstracttext || null,
-        journal,
-        date: resolveDate(p.epubdate, p.pubdate),
+        journal:  idJournalMap[id],
+        date:     resolveDate(p.epubdate, p.pubdate),
         dateSort: resolveDate(p.epubdate, p.pubdate),
-        doi,
-        pmid: id,
+        doi, pmid: id, url,
         isPreprint: false,
-        type: 'journal',
-        url: buildJournalUrl(doi, id),
-      };
-    }).filter(Boolean);
-  } catch(e) {
-    console.warn('PubMed summary error', e);
-    return [];
-  }
+      }];
+    });
+  } catch(e) { return []; }
 }
 
-// ── PUBMED: PHASE 3 — one batched efetch for all abstracts ───────
-async function fetchAbstracts(papers) {
-  const need = papers.filter(p => !p.isPreprint && !p.abstract && p.pmid);
+async function pmAbstracts(papers) {
+  const need = papers.filter(p => !p.abstract && p.pmid);
   if (!need.length) return;
   try {
-    const ids = need.map(p => p.pmid).join(',');
-    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids}&rettype=abstract&retmode=xml`;
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+    const r = await fetch(`${EUTILS}/efetch.fcgi?db=pubmed&id=${need.map(p=>p.pmid).join(',')}&rettype=abstract&retmode=xml`);
+    if (!r.ok) return;
+    const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
     xml.querySelectorAll('PubmedArticle').forEach(art => {
       const pmid = art.querySelector('PMID')?.textContent;
-      const abs  = [...art.querySelectorAll('AbstractText')].map(n => n.textContent).join(' ');
-      if (pmid && abs) {
-        const paper = papers.find(p => p.pmid === pmid);
-        if (paper) paper.abstract = abs;
-      }
+      const abs  = [...art.querySelectorAll('AbstractText')].map(n=>n.textContent).join(' ').trim();
+      if (pmid && abs) { const p = papers.find(x => x.pmid === pmid); if (p) p.abstract = abs; }
     });
-  } catch(e) { /* silent fail */ }
+  } catch(e) { /* silent */ }
 }
 
-// ── BIORXIV FETCH ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  BIORXIV FETCH  (7-day window per category = small payload)
+// ═══════════════════════════════════════════════════════
 async function fetchBioRxiv(cat) {
+  // Use a 14-day window and fetch page 0 (100 papers max).
+  // Much lighter than 30-day, and recent preprints are what we want.
+  const url = `https://api.biorxiv.org/details/biorxiv/${daysAgo(14)}/${today()}/0/json`;
   try {
-    const url = `https://api.biorxiv.org/details/biorxiv/${daysAgo(30)}/${today()}/0/json`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const data = await r.json();
     return (data.collection || [])
       .filter(p => p.category?.toLowerCase() === cat.category.toLowerCase())
       .slice(0, 10)
       .map(p => ({
-        id: 'bxrv-' + p.doi?.replace(/\//g,'-'),
-        title: p.title?.trim() || 'Untitled',
-        authors: (p.authors || '').split('; ').slice(0,4).join(', ') + ((p.authors||'').split('; ').length>4?' et al.':''),
+        id:       'bx-' + (p.doi||'').replace(/\//g,'-'),
+        title:    (p.title||'').trim() || 'Untitled',
+        authors:  (p.authors||'').split('; ').slice(0,4).join(', ') + ((p.authors||'').split('; ').length>4?' et al.':''),
         abstract: p.abstract || null,
-        journal: cat,
-        date: p.date || '',
+        journal:  cat,
+        date:     p.date || '',
         dateSort: p.date || '',
-        doi: p.doi || null,
-        pmid: null,
+        doi:      p.doi || null,
+        pmid:     null,
+        url:      p.doi ? 'https://doi.org/' + p.doi : null,
         isPreprint: true,
-        type: 'preprint',
-        url: p.doi ? `https://doi.org/${p.doi}` : null,
-      }));
-  } catch(e) {
-    console.warn('bioRxiv error', cat.category, e);
-    return [];
-  }
+      }))
+      .filter(p => p.url); // only keep papers with a valid link
+  } catch(e) { return []; }
 }
 
-// ── MAIN LOAD ────────────────────────────────────────────────────
-async function loadAll() {
+// ═══════════════════════════════════════════════════════
+//  ASSEMBLE + SORT + DEDUP
+// ═══════════════════════════════════════════════════════
+function assemblePapers(pubmedPapers, bxArrays) {
+  const all = [...pubmedPapers, ...bxArrays.flat()];
+  all.sort((a,b) => new Date(b.dateSort||0) - new Date(a.dateSort||0));
+  const seen = new Set();
+  return all.filter(p => {
+    const key = p.title.toLowerCase().replace(/\s+/g,'').slice(0,60);
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN LOAD
+// ═══════════════════════════════════════════════════════
+async function loadAll(forceRefresh = false) {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
-  allPapers = [];
-  showStatus('Searching all sources in parallel…');
-  setProgress(10);
-  renderPapers();
 
-  // ── Step 1: staggered PubMed searches + parallel bioRxiv ──
-  // PubMed allows 3 req/sec without an API key, so we stagger by 150ms each.
-  // All 10 searches fire within ~1.5s and run concurrently after their delay.
-  const [searchResults, ...bxResults] = await Promise.allSettled([
-    Promise.allSettled(PUBMED_JOURNALS.map((j, i) => searchPubMed(j, i * 150))),
-    ...BIORXIV_CATS.map(cat => fetchBioRxiv(cat))
-  ]);
-
-  setProgress(45);
-  showStatus('Fetching paper details…');
-
-  // ── Step 2: collect all PubMed IDs → one batched esummary ──
-  const idJournalMap = {};
-  if (searchResults.status === 'fulfilled') {
-    searchResults.value.forEach(r => {
-      if (r.status === 'fulfilled') {
-        r.value.ids.forEach(id => { idJournalMap[id] = r.value.journal; });
-      }
-    });
+  // ── Show cache instantly if available ──────────────────────────
+  const cached = loadCache();
+  if (cached && !forceRefresh) {
+    allPapers = cached.papers;
+    renderPapers();
+    const ago = Math.round((Date.now() - cached.ts) / 60000);
+    document.getElementById('last-updated').textContent = `Cached · ${ago}m ago`;
+    if (cached.fresh) {
+      // Cache is fresh — no need to re-fetch at all
+      btn.classList.remove('spinning');
+      return;
+    }
+    // Cache is stale — show it but refresh in background
+    showStatus('Updating feed in background…');
+  } else {
+    showStatus('Fetching papers…');
+    setProgress(10);
+    renderPapers(); // shows "Loading feed…" empty state
   }
 
-  // ── Step 3: one batched summary call + collect bioRxiv ──
-  const [pubmedPapers, ...bxPaperArrays] = await Promise.all([
-    fetchSummaries(idJournalMap),
-    ...bxResults.map(r => Promise.resolve(r.status === 'fulfilled' ? r.value : []))
+  // ── Phase 1: all searches in parallel (staggered 150ms apart) ──
+  const [searchSettled, ...bxSettled] = await Promise.allSettled([
+    Promise.allSettled(PUBMED_JOURNALS.map((j,i) => pmSearch(j, i * 150))),
+    ...BIORXIV_CATS.map(cat => fetchBioRxiv(cat))
   ]);
+  setProgress(50);
 
+  // ── Phase 2: one batched summary call ──────────────────────────
+  const idMap = {};
+  if (searchSettled.status === 'fulfilled') {
+    searchSettled.value.forEach(r => {
+      if (r.status === 'fulfilled') r.value.ids.forEach(id => { idMap[id] = r.value.journal; });
+    });
+  }
+  showStatus('Loading paper details…');
+  const pubmedPapers = await pmSummary(idMap);
   setProgress(75);
+
+  // ── Phase 3: one batched abstract call ─────────────────────────
   showStatus('Fetching abstracts…');
-
-  // ── Step 4: one batched abstract call for missing abstracts ──
-  await fetchAbstracts(pubmedPapers);
-
+  await pmAbstracts(pubmedPapers);
   setProgress(95);
 
-  // ── Assemble, sort, deduplicate ──
-  const all = [...pubmedPapers, ...bxPaperArrays.flat()];
-  all.sort((a, b) => new Date(b.dateSort||0) - new Date(a.dateSort||0));
-  const seen = new Set();
-  allPapers = all.filter(p => {
-    const key = p.title.toLowerCase().replace(/\s+/g,'').substring(0,60);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // ── Assemble ───────────────────────────────────────────────────
+  const bxArrays = bxSettled.map(r => r.status === 'fulfilled' ? r.value : []);
+  allPapers = assemblePapers(pubmedPapers, bxArrays);
 
+  saveCache(allPapers);
   setProgress(100);
   hideStatus();
   btn.classList.remove('spinning');
   document.getElementById('last-updated').textContent =
-    `Updated ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
+    'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   renderPapers();
 }
 
-// ── RENDER ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
 function renderPapers() {
-  const grid = document.getElementById('papers-grid');
+  const grid  = document.getElementById('papers-grid');
   const stats = document.getElementById('stats-row');
 
   let filtered = allPapers;
-  if (currentFilter === 'journal') filtered = allPapers.filter(p => !p.isPreprint);
-  else if (currentFilter === 'preprint') filtered = allPapers.filter(p => p.isPreprint);
-  else if (currentFilter !== 'all') filtered = allPapers.filter(p => p.journal.id === currentFilter);
+  if      (currentFilter === 'journal')  filtered = allPapers.filter(p => !p.isPreprint);
+  else if (currentFilter === 'preprint') filtered = allPapers.filter(p =>  p.isPreprint);
+  else if (currentFilter !== 'all')      filtered = allPapers.filter(p =>  p.journal.id === currentFilter);
 
   if (!allPapers.length) {
-    grid.innerHTML = `<div class="empty-state"><h3>Loading feed…</h3><p>Fetching the latest papers from ${totalSources} sources.</p></div>`;
-    stats.innerHTML = '';
-    return;
+    grid.innerHTML = `<div class="empty-state"><h3>Fetching your feed…</h3><p>Loading the latest papers from your journals.</p></div>`;
+    stats.innerHTML = ''; return;
   }
-
   if (!filtered.length) {
-    grid.innerHTML = `<div class="empty-state"><h3>No papers found</h3><p>No recent papers matched this filter. Try a broader time window or check back later.</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><h3>No papers found</h3><p>No recent papers matched this filter.</p></div>`;
   } else {
-    // Build cards with section headers for journals vs preprints
+    const journals  = filtered.filter(p => !p.isPreprint);
+    const preprints = filtered.filter(p =>  p.isPreprint);
     let html = '';
-    const journals = filtered.filter(p => !p.isPreprint);
-    const preprints = filtered.filter(p => p.isPreprint);
-
     if (journals.length && preprints.length) {
-      if (journals.length) html += sectionHeader('Journal Articles');
-      journals.forEach((p, i) => { html += paperCard(p, i); });
-      if (preprints.length) html += sectionHeader('Preprints (bioRxiv)');
-      preprints.forEach((p, i) => { html += paperCard(p, i + journals.length); });
+      html += sectionHeader('Journal Articles');
+      journals.forEach((p,i)  => { html += paperCard(p,i); });
+      html += sectionHeader('Preprints (bioRxiv)');
+      preprints.forEach((p,i) => { html += paperCard(p, i + journals.length); });
     } else {
-      filtered.forEach((p, i) => { html += paperCard(p, i); });
+      filtered.forEach((p,i)  => { html += paperCard(p,i); });
     }
     grid.innerHTML = html;
   }
 
-  const nJournals = allPapers.filter(p => !p.isPreprint).length;
-  const nPreprints = allPapers.filter(p => p.isPreprint).length;
-  stats.innerHTML = `
-    <span>${allPapers.length} papers</span>
-    <span class="dot">·</span>
-    <span>${nJournals} journal articles</span>
-    <span class="dot">·</span>
-    <span>${nPreprints} preprints</span>
-    <span class="dot">·</span>
-    <span>Last 30–60 days</span>
-  `;
+  const nJ = allPapers.filter(p=>!p.isPreprint).length;
+  const nP = allPapers.filter(p=> p.isPreprint).length;
+  stats.innerHTML = `<span>${allPapers.length} papers</span><span class="dot">·</span><span>${nJ} journal articles</span><span class="dot">·</span><span>${nP} preprints</span><span class="dot">·</span><span>Last 14–60 days</span>`;
 }
 
 function sectionHeader(label) {
@@ -621,11 +631,11 @@ function sectionHeader(label) {
 }
 
 function paperCard(paper, idx) {
-  const j = paper.journal;
-  const delay = Math.min(idx * 30, 300);
-  const abstract = paper.abstract || 'Abstract not available. Click "Open Paper" to read more.';
-  const url = paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : '#');
-  const preprintChip = paper.isPreprint ? `<span class="preprint-chip">Preprint</span>` : '';
+  const j       = paper.journal;
+  const delay   = Math.min(idx * 25, 300);
+  const abstract = paper.abstract || 'Abstract not available. Click "Open Paper" to read the full text.';
+  const url     = paper.url || '#';
+  const isReal  = url !== '#';
 
   return `
   <div class="paper-card" style="animation-delay:${delay}ms">
@@ -633,41 +643,42 @@ function paperCard(paper, idx) {
       <span class="journal-badge" style="color:${j.color};border-color:${j.color}22;background:${j.bg}">${j.name}</span>
       <span class="paper-date">${fmt(paper.date)}</span>
     </div>
-    ${preprintChip}
-    <div class="paper-title">${escHtml(paper.title)}</div>
-    <div class="paper-authors">${escHtml(paper.authors) || 'Authors not available'}</div>
-    <div class="paper-abstract" id="abs-${escAttr(paper.id)}">${escHtml(abstract)}</div>
+    ${paper.isPreprint ? '<span class="preprint-chip">Preprint</span>' : ''}
+    <div class="paper-title">${esc(paper.title)}</div>
+    <div class="paper-authors">${esc(paper.authors) || 'Authors not available'}</div>
+    <div class="paper-abstract" id="abs-${safeId(paper.id)}">${esc(abstract)}</div>
     <div class="card-actions">
-      <a class="btn-read" href="${url}" target="_blank" rel="noopener">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-        Open Paper
-      </a>
-      <button class="btn-expand" onclick="toggleAbstract('${escAttr(paper.id)}', this)">Expand</button>
+      ${isReal
+        ? `<a class="btn-read" href="${url}" target="_blank" rel="noopener noreferrer">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+               <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+             </svg>Open Paper</a>`
+        : `<span class="btn-read" style="opacity:.4;cursor:default">No link available</span>`
+      }
+      <button class="btn-expand" onclick="toggleAbs('${safeId(paper.id)}',this)">Expand</button>
     </div>
   </div>`;
 }
 
-function toggleAbstract(id, btn) {
+function toggleAbs(id, btn) {
   const el = document.getElementById('abs-' + id);
   if (!el) return;
   el.classList.toggle('expanded');
   btn.textContent = el.classList.contains('expanded') ? 'Collapse' : 'Expand';
 }
 
-function escHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function escAttr(s) {
-  if (!s) return '';
-  return String(s).replace(/[^a-zA-Z0-9-]/g, '-');
-}
+function safeId(s) { return String(s||'').replace(/[^a-zA-Z0-9]/g,'-'); }
 
-// ── BOOT ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════
 buildFilterButtons();
+// Pass forceRefresh=true when user clicks the Refresh button
+document.getElementById('refresh-btn').onclick = () => loadAll(true);
 loadAll();
 </script>
 </body>
